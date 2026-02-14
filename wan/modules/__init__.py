@@ -5,12 +5,12 @@ from .tokenizers import HuggingfaceTokenizer
 from .vae import WanVAE
 
 __all__ = [
-    'WanVAE',
-    'WanModel',
-    'T5Model',
-    'T5Encoder',
-    'T5Decoder',
-    'T5EncoderModel',
-    'HuggingfaceTokenizer',
-    'flash_attention',
+    "WanVAE",
+    "WanModel",
+    "T5Model",
+    "T5Encoder",
+    "T5Decoder",
+    "T5EncoderModel",
+    "HuggingfaceTokenizer",
+    "flash_attention",
 ]

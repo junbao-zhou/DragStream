@@ -26,18 +26,27 @@ from demo_utils.constant import ZERO_VAE_CACHE
 from demo_utils.vae_block3 import VAEDecoderWrapper
 from utils.wan_wrapper import WanDiffusionWrapper, WanTextEncoder
 from demo_utils.utils import generate_timestamp
-from demo_utils.memory import gpu, get_cuda_free_memory_gb, DynamicSwapInstaller, move_model_to_device_with_memory_preservation
+from demo_utils.memory import (
+    gpu,
+    get_cuda_free_memory_gb,
+    DynamicSwapInstaller,
+    move_model_to_device_with_memory_preservation,
+)
 
 # Parse arguments
 parser = argparse.ArgumentParser()
-parser.add_argument('--port', type=int, default=5001)
-parser.add_argument('--host', type=str, default='0.0.0.0')
-parser.add_argument("--checkpoint_path", type=str, default='./checkpoints/self_forcing_dmd.pt')
-parser.add_argument("--config_path", type=str, default='./configs/self_forcing_dmd.yaml')
-parser.add_argument('--trt', action='store_true')
+parser.add_argument("--port", type=int, default=5001)
+parser.add_argument("--host", type=str, default="0.0.0.0")
+parser.add_argument(
+    "--checkpoint_path", type=str, default="./checkpoints/self_forcing_dmd.pt"
+)
+parser.add_argument(
+    "--config_path", type=str, default="./configs/self_forcing_dmd.yaml"
+)
+parser.add_argument("--trt", action="store_true")
 args = parser.parse_args()
 
-print(f'Free VRAM {get_cuda_free_memory_gb(gpu)} GB')
+print(f"Free VRAM {get_cuda_free_memory_gb(gpu)} GB")
 low_memory = get_cuda_free_memory_gb(gpu) < 40
 
 # Load models
@@ -57,26 +66,35 @@ frame_number = 0
 anim_name = ""
 frame_rate = 6
 
+
 def initialize_vae_decoder(use_taehv=False, use_trt=False):
     """Initialize VAE decoder based on the selected option"""
     global current_vae_decoder, current_use_taehv
 
     if use_trt:
         from demo_utils.vae import VAETRTWrapper
+
         current_vae_decoder = VAETRTWrapper()
         return current_vae_decoder
 
     if use_taehv:
         from demo_utils.taehv import TAEHV
+
         # Check if taew2_1.pth exists in checkpoints folder, download if missing
         taehv_checkpoint_path = "checkpoints/taew2_1.pth"
         if not os.path.exists(taehv_checkpoint_path):
-            print(f"taew2_1.pth not found in checkpoints folder {taehv_checkpoint_path}. Downloading...")
+            print(
+                f"taew2_1.pth not found in checkpoints folder {taehv_checkpoint_path}. Downloading..."
+            )
             os.makedirs("checkpoints", exist_ok=True)
-            download_url = "https://github.com/madebyollin/taehv/raw/main/taew2_1.pth"
+            download_url = (
+                "https://github.com/madebyollin/taehv/raw/main/taew2_1.pth"
+            )
             try:
                 urllib.request.urlretrieve(download_url, taehv_checkpoint_path)
-                print(f"Successfully downloaded taew2_1.pth to {taehv_checkpoint_path}")
+                print(
+                    f"Successfully downloaded taew2_1.pth to {taehv_checkpoint_path}"
+                )
             except Exception as e:
                 print(f"Failed to download taew2_1.pth: {e}")
                 raise
@@ -89,21 +107,29 @@ def initialize_vae_decoder(use_taehv=False, use_trt=False):
             def __init__(self):
                 super().__init__()
                 self.dtype = torch.float16
-                self.taehv = TAEHV(checkpoint_path=taehv_checkpoint_path).to(self.dtype)
+                self.taehv = TAEHV(checkpoint_path=taehv_checkpoint_path).to(
+                    self.dtype
+                )
                 self.config = DotDict(scaling_factor=1.0)
 
             def decode(self, latents, return_dict=None):
                 # n, c, t, h, w = latents.shape
                 # low-memory, set parallel=True for faster + higher memory
-                return self.taehv.decode_video(latents, parallel=False).mul_(2).sub_(1)
+                return (
+                    self.taehv.decode_video(latents, parallel=False)
+                    .mul_(2)
+                    .sub_(1)
+                )
 
         current_vae_decoder = TAEHVDiffusersWrapper()
     else:
         current_vae_decoder = VAEDecoderWrapper()
-        vae_state_dict = torch.load('wan_models/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth', map_location="cpu")
+        vae_state_dict = torch.load(
+            "wan_models/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth", map_location="cpu"
+        )
         decoder_state_dict = {}
         for key, value in vae_state_dict.items():
-            if 'decoder.' in key or 'conv2' in key:
+            if "decoder." in key or "conv2" in key:
                 decoder_state_dict[key] = value
         current_vae_decoder.load_state_dict(decoder_state_dict)
 
@@ -113,7 +139,9 @@ def initialize_vae_decoder(use_taehv=False, use_trt=False):
     current_vae_decoder.to(gpu)
     current_use_taehv = use_taehv
 
-    print(f"✅ VAE decoder initialized with {'TAEHV' if use_taehv else 'default VAE'}")
+    print(
+        f"✅ VAE decoder initialized with {'TAEHV' if use_taehv else 'default VAE'}"
+    )
     return current_vae_decoder
 
 
@@ -122,7 +150,7 @@ vae_decoder = initialize_vae_decoder(use_taehv=False, use_trt=args.trt)
 
 transformer = WanDiffusionWrapper(is_causal=True)
 state_dict = torch.load(args.checkpoint_path, map_location="cpu")
-transformer.load_state_dict(state_dict['generator_ema'])
+transformer.load_state_dict(state_dict["generator_ema"])
 
 text_encoder.eval()
 transformer.eval()
@@ -138,7 +166,7 @@ pipeline = CausalInferencePipeline(
     device=gpu,
     generator=transformer,
     text_encoder=text_encoder,
-    vae=vae_decoder
+    vae=vae_decoder,
 )
 
 if low_memory:
@@ -149,7 +177,7 @@ transformer.to(gpu)
 
 # Flask and SocketIO setup
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'frontend_buffered_demo'
+app.config["SECRET_KEY"] = "frontend_buffered_demo"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 generation_active = False
@@ -163,7 +191,7 @@ def tensor_to_base64_frame(frame_tensor):
     """Convert a single frame tensor to base64 image string."""
     global frame_number, anim_name
     # Clamp and normalize to 0-255
-    frame = torch.clamp(frame_tensor.float(), -1., 1.) * 127.5 + 127.5
+    frame = torch.clamp(frame_tensor.float(), -1.0, 1.0) * 127.5 + 127.5
     frame = frame.to(torch.uint8).cpu().numpy()
 
     # CHW -> HWC
@@ -172,13 +200,13 @@ def tensor_to_base64_frame(frame_tensor):
 
     # Convert to PIL Image
     if frame.shape[2] == 3:  # RGB
-        image = Image.fromarray(frame, 'RGB')
+        image = Image.fromarray(frame, "RGB")
     else:  # Handle other formats
         image = Image.fromarray(frame)
 
     # Convert to base64
     buffer = BytesIO()
-    image.save(buffer, format='JPEG', quality=100)
+    image.save(buffer, format="JPEG", quality=100)
     if not os.path.exists("./images/%s" % anim_name):
         os.makedirs("./images/%s" % anim_name)
     frame_number += 1
@@ -210,12 +238,15 @@ def frame_sender_worker():
 
             # Send via SocketIO
             try:
-                socketio.emit('frame_ready', {
-                    'data': base64_frame,
-                    'frame_index': frame_index,
-                    'block_index': block_index,
-                    'job_id': job_id
-                })
+                socketio.emit(
+                    "frame_ready",
+                    {
+                        "data": base64_frame,
+                        "frame_index": frame_index,
+                        "block_index": block_index,
+                        "job_id": job_id,
+                    },
+                )
             except Exception as e:
                 print(f"⚠️ Failed to send frame {frame_index}: {e}")
 
@@ -239,7 +270,9 @@ def frame_sender_worker():
 
 
 @torch.no_grad()
-def generate_video_stream(prompt, seed, enable_torch_compile=False, enable_fp8=False, use_taehv=False):
+def generate_video_stream(
+    prompt, seed, enable_torch_compile=False, enable_fp8=False, use_taehv=False
+):
     """Generate video and push frames immediately to frontend."""
     global generation_active, stop_event, frame_send_queue, sender_thread, models_compiled, torch_compile_applied, fp8_applied, current_vae_decoder, current_use_taehv, frame_rate, anim_name
 
@@ -256,41 +289,59 @@ def generate_video_stream(prompt, seed, enable_torch_compile=False, enable_fp8=F
         # Emit progress updates
         def emit_progress(message, progress):
             try:
-                socketio.emit('progress', {
-                    'message': message,
-                    'progress': progress,
-                    'job_id': job_id
-                })
+                socketio.emit(
+                    "progress",
+                    {
+                        "message": message,
+                        "progress": progress,
+                        "job_id": job_id,
+                    },
+                )
             except Exception as e:
                 print(f"❌ Failed to emit progress: {e}")
 
-        emit_progress('Starting generation...', 0)
+        emit_progress("Starting generation...", 0)
 
         # Handle VAE decoder switching
         if use_taehv != current_use_taehv:
-            emit_progress('Switching VAE decoder...', 2)
-            print(f"🔄 Switching VAE decoder to {'TAEHV' if use_taehv else 'default VAE'}")
+            emit_progress("Switching VAE decoder...", 2)
+            print(
+                f"🔄 Switching VAE decoder to {'TAEHV' if use_taehv else 'default VAE'}"
+            )
             current_vae_decoder = initialize_vae_decoder(use_taehv=use_taehv)
             # Update pipeline with new VAE decoder
             pipeline.vae = current_vae_decoder
 
         # Handle FP8 quantization
         if enable_fp8 and not fp8_applied:
-            emit_progress('Applying FP8 quantization...', 3)
+            emit_progress("Applying FP8 quantization...", 3)
             print("🔧 Applying FP8 quantization to transformer")
-            from torchao.quantization.quant_api import quantize_, Float8DynamicActivationFloat8WeightConfig, PerTensor
-            quantize_(transformer, Float8DynamicActivationFloat8WeightConfig(granularity=PerTensor()))
+            from torchao.quantization.quant_api import (
+                quantize_,
+                Float8DynamicActivationFloat8WeightConfig,
+                PerTensor,
+            )
+
+            quantize_(
+                transformer,
+                Float8DynamicActivationFloat8WeightConfig(
+                    granularity=PerTensor()
+                ),
+            )
             fp8_applied = True
 
         # Text encoding
-        emit_progress('Encoding text prompt...', 8)
+        emit_progress("Encoding text prompt...", 8)
         conditional_dict = text_encoder(text_prompts=[prompt])
         for key, value in conditional_dict.items():
             conditional_dict[key] = value.to(dtype=torch.float16)
         if low_memory:
             gpu_memory_preservation = get_cuda_free_memory_gb(gpu) + 5
             move_model_to_device_with_memory_preservation(
-                text_encoder,target_device=gpu, preserved_memory_gb=gpu_memory_preservation)
+                text_encoder,
+                target_device=gpu,
+                preserved_memory_gb=gpu_memory_preservation,
+            )
 
         # Handle torch.compile if enabled
         torch_compile_applied = enable_torch_compile
@@ -301,15 +352,21 @@ def generate_video_stream(prompt, seed, enable_torch_compile=False, enable_fp8=F
                 current_vae_decoder.compile(mode="max-autotune-no-cudagraphs")
 
         # Initialize generation
-        emit_progress('Initializing generation...', 12)
+        emit_progress("Initializing generation...", 12)
 
         rnd = torch.Generator(gpu).manual_seed(seed)
         # all_latents = torch.zeros([1, 21, 16, 60, 104], device=gpu, dtype=torch.bfloat16)
 
-        pipeline._initialize_kv_cache(batch_size=1, dtype=torch.float16, device=gpu)
-        pipeline._initialize_crossattn_cache(batch_size=1, dtype=torch.float16, device=gpu)
+        pipeline._initialize_kv_cache(
+            batch_size=1, dtype=torch.float16, device=gpu
+        )
+        pipeline._initialize_crossattn_cache(
+            batch_size=1, dtype=torch.float16, device=gpu
+        )
 
-        noise = torch.randn([1, 21, 16, 60, 104], device=gpu, dtype=torch.float16, generator=rnd)
+        noise = torch.randn(
+            [1, 21, 16, 60, 104], device=gpu, dtype=torch.float16, generator=rnd
+        )
 
         # Generation parameters
         num_blocks = 7
@@ -326,7 +383,7 @@ def generate_video_stream(prompt, seed, enable_torch_compile=False, enable_fp8=F
         total_frames_sent = 0
         generation_start_time = time.time()
 
-        emit_progress('Generating frames... (frontend handles timing)', 15)
+        emit_progress("Generating frames... (frontend handles timing)", 15)
 
         for idx, current_num_frames in enumerate(all_num_frames):
             if not generation_active or stop_event.is_set():
@@ -337,26 +394,44 @@ def generate_video_stream(prompt, seed, enable_torch_compile=False, enable_fp8=F
             # Special message for first block with torch.compile
             if idx == 0 and torch_compile_applied and not models_compiled:
                 emit_progress(
-                    f'Processing block 1/{len(all_num_frames)} - Compiling models (may take 5-10 minutes)...', progress)
+                    f"Processing block 1/{len(all_num_frames)} - Compiling models (may take 5-10 minutes)...",
+                    progress,
+                )
                 print(f"🔥 Processing block {idx+1}/{len(all_num_frames)}")
                 models_compiled = True
             else:
-                emit_progress(f'Processing block {idx+1}/{len(all_num_frames)}...', progress)
+                emit_progress(
+                    f"Processing block {idx+1}/{len(all_num_frames)}...",
+                    progress,
+                )
                 print(f"🔄 Processing block {idx+1}/{len(all_num_frames)}")
 
             block_start_time = time.time()
 
-            noisy_input = noise[:, current_start_frame -
-                                num_input_frames:current_start_frame + current_num_frames - num_input_frames]
+            noisy_input = noise[
+                :,
+                current_start_frame
+                - num_input_frames : current_start_frame
+                + current_num_frames
+                - num_input_frames,
+            ]
 
             # Denoising loop
             denoising_start = time.time()
-            for index, current_timestep in enumerate(pipeline.denoising_step_list):
+            for index, current_timestep in enumerate(
+                pipeline.denoising_step_list
+            ):
                 if not generation_active or stop_event.is_set():
                     break
 
-                timestep = torch.ones([1, current_num_frames], device=noise.device,
-                                      dtype=torch.int64) * current_timestep
+                timestep = (
+                    torch.ones(
+                        [1, current_num_frames],
+                        device=noise.device,
+                        dtype=torch.int64,
+                    )
+                    * current_timestep
+                )
 
                 if index < len(pipeline.denoising_step_list) - 1:
                     _, denoised_pred = transformer(
@@ -365,13 +440,19 @@ def generate_video_stream(prompt, seed, enable_torch_compile=False, enable_fp8=F
                         timestep=timestep,
                         kv_cache=pipeline.kv_cache1,
                         crossattn_cache=pipeline.crossattn_cache,
-                        current_start=current_start_frame * pipeline.frame_seq_length
+                        current_start=current_start_frame
+                        * pipeline.frame_seq_length,
                     )
                     next_timestep = pipeline.denoising_step_list[index + 1]
                     noisy_input = pipeline.scheduler.add_noise(
                         denoised_pred.flatten(0, 1),
                         torch.randn_like(denoised_pred.flatten(0, 1)),
-                        next_timestep * torch.ones([1 * current_num_frames], device=noise.device, dtype=torch.long)
+                        next_timestep
+                        * torch.ones(
+                            [1 * current_num_frames],
+                            device=noise.device,
+                            dtype=torch.long,
+                        ),
                     ).unflatten(0, denoised_pred.shape[:2])
                 else:
                     _, denoised_pred = transformer(
@@ -380,14 +461,17 @@ def generate_video_stream(prompt, seed, enable_torch_compile=False, enable_fp8=F
                         timestep=timestep,
                         kv_cache=pipeline.kv_cache1,
                         crossattn_cache=pipeline.crossattn_cache,
-                        current_start=current_start_frame * pipeline.frame_seq_length
+                        current_start=current_start_frame
+                        * pipeline.frame_seq_length,
                     )
 
             if not generation_active or stop_event.is_set():
                 break
 
             denoising_time = time.time() - denoising_start
-            print(f"⚡ Block {idx+1} denoising completed in {denoising_time:.2f}s")
+            print(
+                f"⚡ Block {idx+1} denoising completed in {denoising_time:.2f}s"
+            )
 
             # Record output
             # all_latents[:, current_start_frame:current_start_frame + current_num_frames] = denoised_pred
@@ -400,7 +484,8 @@ def generate_video_stream(prompt, seed, enable_torch_compile=False, enable_fp8=F
                     timestep=torch.zeros_like(timestep),
                     kv_cache=pipeline.kv_cache1,
                     crossattn_cache=pipeline.crossattn_cache,
-                    current_start=current_start_frame * pipeline.frame_seq_length,
+                    current_start=current_start_frame
+                    * pipeline.frame_seq_length,
                 )
 
             # Decode to pixels and send frames immediately
@@ -409,42 +494,63 @@ def generate_video_stream(prompt, seed, enable_torch_compile=False, enable_fp8=F
             if args.trt:
                 all_current_pixels = []
                 for i in range(denoised_pred.shape[1]):
-                    is_first_frame = torch.tensor(1.0).cuda().half() if idx == 0 and i == 0 else \
-                        torch.tensor(0.0).cuda().half()
-                    outputs = vae_decoder.forward(denoised_pred[:, i:i + 1, :, :, :].half(), is_first_frame, *vae_cache)
+                    is_first_frame = (
+                        torch.tensor(1.0).cuda().half()
+                        if idx == 0 and i == 0
+                        else torch.tensor(0.0).cuda().half()
+                    )
+                    outputs = vae_decoder.forward(
+                        denoised_pred[:, i : i + 1, :, :, :].half(),
+                        is_first_frame,
+                        *vae_cache,
+                    )
                     # outputs = vae_decoder.forward(denoised_pred.float(), *vae_cache)
                     current_pixels, vae_cache = outputs[0], outputs[1:]
                     print(current_pixels.max(), current_pixels.min())
                     all_current_pixels.append(current_pixels.clone())
                 pixels = torch.cat(all_current_pixels, dim=1)
                 if idx == 0:
-                    pixels = pixels[:, 3:, :, :, :]  # Skip first 3 frames of first block
+                    pixels = pixels[
+                        :, 3:, :, :, :
+                    ]  # Skip first 3 frames of first block
             else:
                 if current_use_taehv:
                     if vae_cache is None:
                         vae_cache = denoised_pred
                     else:
-                        denoised_pred = torch.cat([vae_cache, denoised_pred], dim=1)
+                        denoised_pred = torch.cat(
+                            [vae_cache, denoised_pred], dim=1
+                        )
                         vae_cache = denoised_pred[:, -3:, :, :, :]
                     pixels = current_vae_decoder.decode(denoised_pred)
                     print(f"denoised_pred shape: {denoised_pred.shape}")
                     print(f"pixels shape: {pixels.shape}")
                     if idx == 0:
-                        pixels = pixels[:, 3:, :, :, :]  # Skip first 3 frames of first block
+                        pixels = pixels[
+                            :, 3:, :, :, :
+                        ]  # Skip first 3 frames of first block
                     else:
                         pixels = pixels[:, 12:, :, :, :]
 
                 else:
-                    pixels, vae_cache = current_vae_decoder(denoised_pred.half(), *vae_cache)
+                    pixels, vae_cache = current_vae_decoder(
+                        denoised_pred.half(), *vae_cache
+                    )
                     if idx == 0:
-                        pixels = pixels[:, 3:, :, :, :]  # Skip first 3 frames of first block
+                        pixels = pixels[
+                            :, 3:, :, :, :
+                        ]  # Skip first 3 frames of first block
 
             decode_time = time.time() - decode_start
-            print(f"🎨 Block {idx+1} VAE decoding completed in {decode_time:.2f}s")
+            print(
+                f"🎨 Block {idx+1} VAE decoding completed in {decode_time:.2f}s"
+            )
 
             # Queue frames for non-blocking sending
             block_frames = pixels.shape[1]
-            print(f"📡 Queueing {block_frames} frames from block {idx+1} for sending...")
+            print(
+                f"📡 Queueing {block_frames} frames from block {idx+1} for sending..."
+            )
             queue_start = time.time()
 
             for frame_idx in range(block_frames):
@@ -454,45 +560,56 @@ def generate_video_stream(prompt, seed, enable_torch_compile=False, enable_fp8=F
                 frame_tensor = pixels[0, frame_idx].cpu()
 
                 # Queue frame data in non-blocking way
-                frame_send_queue.put((frame_tensor, total_frames_sent, idx, job_id))
+                frame_send_queue.put(
+                    (frame_tensor, total_frames_sent, idx, job_id)
+                )
                 total_frames_sent += 1
 
             queue_time = time.time() - queue_start
             block_time = time.time() - block_start_time
-            print(f"✅ Block {idx+1} completed in {block_time:.2f}s ({block_frames} frames queued in {queue_time:.3f}s)")
+            print(
+                f"✅ Block {idx+1} completed in {block_time:.2f}s ({block_frames} frames queued in {queue_time:.3f}s)"
+            )
 
             current_start_frame += current_num_frames
 
         generation_time = time.time() - generation_start_time
-        print(f"🎉 Generation completed in {generation_time:.2f}s! {total_frames_sent} frames queued for sending")
+        print(
+            f"🎉 Generation completed in {generation_time:.2f}s! {total_frames_sent} frames queued for sending"
+        )
 
         # Wait for all frames to be sent before completing
-        emit_progress('Waiting for all frames to be sent...', 97)
+        emit_progress("Waiting for all frames to be sent...", 97)
         print("⏳ Waiting for all frames to be sent...")
         frame_send_queue.join()  # Wait for all queued frames to be processed
         print("✅ All frames sent successfully!")
 
-        generate_mp4_from_images("./images","./videos/"+anim_name+".mp4", frame_rate )
+        generate_mp4_from_images(
+            "./images", "./videos/" + anim_name + ".mp4", frame_rate
+        )
         # Final progress update
-        emit_progress('Generation complete!', 100)
+        emit_progress("Generation complete!", 100)
 
         try:
-            socketio.emit('generation_complete', {
-                'message': 'Video generation completed!',
-                'total_frames': total_frames_sent,
-                'generation_time': f"{generation_time:.2f}s",
-                'job_id': job_id
-            })
+            socketio.emit(
+                "generation_complete",
+                {
+                    "message": "Video generation completed!",
+                    "total_frames": total_frames_sent,
+                    "generation_time": f"{generation_time:.2f}s",
+                    "job_id": job_id,
+                },
+            )
         except Exception as e:
             print(f"❌ Failed to emit generation complete: {e}")
 
     except Exception as e:
         print(f"❌ Generation failed: {e}")
         try:
-            socketio.emit('error', {
-                'message': f'Generation failed: {str(e)}',
-                'job_id': job_id
-            })
+            socketio.emit(
+                "error",
+                {"message": f"Generation failed: {str(e)}", "job_id": job_id},
+            )
         except Exception as e:
             print(f"❌ Failed to emit error: {e}")
     finally:
@@ -517,18 +634,25 @@ def generate_mp4_from_images(image_directory, output_video_path, fps=24):
     global anim_name
     # Construct the ffmpeg command
     cmd = [
-        'ffmpeg',
-        '-framerate', str(fps),
-        '-i', os.path.join(image_directory, anim_name+'/'+anim_name+'_%03d.jpg'),  # Adjust the pattern if necessary
-        '-c:v', 'libx264',
-        '-pix_fmt', 'yuv420p',
-        output_video_path
+        "ffmpeg",
+        "-framerate",
+        str(fps),
+        "-i",
+        os.path.join(
+            image_directory, anim_name + "/" + anim_name + "_%03d.jpg"
+        ),  # Adjust the pattern if necessary
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        output_video_path,
     ]
     try:
         subprocess.run(cmd, check=True)
         print(f"Video saved to {output_video_path}")
     except subprocess.CalledProcessError as e:
         print(f"An error occurred: {e}")
+
 
 def calculate_sha256(data):
     # Convert data to bytes if it's not already
@@ -538,37 +662,40 @@ def calculate_sha256(data):
     sha256_hash = hashlib.sha256(data).hexdigest()
     return sha256_hash
 
+
 # Socket.IO event handlers
-@socketio.on('connect')
+@socketio.on("connect")
 def handle_connect():
-    print('Client connected')
-    emit('status', {'message': 'Connected to frontend-buffered demo server'})
+    print("Client connected")
+    emit("status", {"message": "Connected to frontend-buffered demo server"})
 
 
-@socketio.on('disconnect')
+@socketio.on("disconnect")
 def handle_disconnect():
-    print('Client disconnected')
+    print("Client disconnected")
 
 
-@socketio.on('start_generation')
+@socketio.on("start_generation")
 def handle_start_generation(data):
     global generation_active, frame_number, anim_name, frame_rate
 
     frame_number = 0
     if generation_active:
-        emit('error', {'message': 'Generation already in progress'})
+        emit("error", {"message": "Generation already in progress"})
         return
 
-    prompt = data.get('prompt', '')
+    prompt = data.get("prompt", "")
 
-    seed = data.get('seed', -1)
-    if seed==-1:
+    seed = data.get("seed", -1)
+    if seed == -1:
         seed = random.randint(0, 2**32)
 
     # Extract words up to the first punctuation or newline
-    words_up_to_punctuation = re.split(r'[^\w\s]', prompt)[0].strip() if prompt else ''
+    words_up_to_punctuation = (
+        re.split(r"[^\w\s]", prompt)[0].strip() if prompt else ""
+    )
     if not words_up_to_punctuation:
-        words_up_to_punctuation = re.split(r'[\n\r]', prompt)[0].strip()
+        words_up_to_punctuation = re.split(r"[\n\r]", prompt)[0].strip()
 
     # Calculate SHA-256 hash of the entire prompt
     sha256_hash = calculate_sha256(prompt)
@@ -578,22 +705,31 @@ def handle_start_generation(data):
 
     generation_active = True
     generation_start_time = time.time()
-    enable_torch_compile = data.get('enable_torch_compile', False)
-    enable_fp8 = data.get('enable_fp8', False)
-    use_taehv = data.get('use_taehv', False)
-    frame_rate = data.get('fps', 6)
+    enable_torch_compile = data.get("enable_torch_compile", False)
+    enable_fp8 = data.get("enable_fp8", False)
+    use_taehv = data.get("use_taehv", False)
+    frame_rate = data.get("fps", 6)
 
     if not prompt:
-        emit('error', {'message': 'Prompt is required'})
+        emit("error", {"message": "Prompt is required"})
         return
 
     # Start generation in background thread
-    socketio.start_background_task(generate_video_stream, prompt, seed,
-                                   enable_torch_compile, enable_fp8, use_taehv)
-    emit('status', {'message': 'Generation started - frames will be sent immediately'})
+    socketio.start_background_task(
+        generate_video_stream,
+        prompt,
+        seed,
+        enable_torch_compile,
+        enable_fp8,
+        use_taehv,
+    )
+    emit(
+        "status",
+        {"message": "Generation started - frames will be sent immediately"},
+    )
 
 
-@socketio.on('stop_generation')
+@socketio.on("stop_generation")
 def handle_stop_generation():
     global generation_active, stop_event, frame_send_queue
     generation_active = False
@@ -605,27 +741,30 @@ def handle_stop_generation():
     except Exception as e:
         print(f"❌ Failed to put None in frame_send_queue: {e}")
 
-    emit('status', {'message': 'Generation stopped'})
+    emit("status", {"message": "Generation stopped"})
+
 
 # Web routes
 
 
-@app.route('/')
+@app.route("/")
 def index():
-    return render_template('demo.html')
+    return render_template("demo.html")
 
 
-@app.route('/api/status')
+@app.route("/api/status")
 def api_status():
-    return jsonify({
-        'generation_active': generation_active,
-        'free_vram_gb': get_cuda_free_memory_gb(gpu),
-        'fp8_applied': fp8_applied,
-        'torch_compile_applied': torch_compile_applied,
-        'current_use_taehv': current_use_taehv
-    })
+    return jsonify(
+        {
+            "generation_active": generation_active,
+            "free_vram_gb": get_cuda_free_memory_gb(gpu),
+            "fp8_applied": fp8_applied,
+            "torch_compile_applied": torch_compile_applied,
+            "current_use_taehv": current_use_taehv,
+        }
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print(f"🚀 Starting demo on http://{args.host}:{args.port}")
     socketio.run(app, host=args.host, port=args.port, debug=False)

@@ -7,5 +7,5 @@ __all__ = [
     "DiffusionTrainer",
     "GANTrainer",
     "ODETrainer",
-    "ScoreDistillationTrainer"
+    "ScoreDistillationTrainer",
 ]

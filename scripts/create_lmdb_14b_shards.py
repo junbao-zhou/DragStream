@@ -3,6 +3,7 @@ python create_lmdb_14b_shards.py \
 --data_path /mnt/localssd/wanx_14b_data \
 --lmdb_path /mnt/localssd/wanx_14B_shift-3.0_cfg-5.0_lmdb
 """
+
 from tqdm import tqdm
 import numpy as np
 import argparse
@@ -21,12 +22,13 @@ def main():
     video's ODE trajectories.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_path", type=str,
-                        required=True, help="path to ode pairs")
-    parser.add_argument("--lmdb_path", type=str,
-                        required=True, help="path to lmdb")
-    parser.add_argument("--num_shards", type=int,
-                        default=16, help="num_shards")
+    parser.add_argument(
+        "--data_path", type=str, required=True, help="path to ode pairs"
+    )
+    parser.add_argument(
+        "--lmdb_path", type=str, required=True, help="path to lmdb"
+    )
+    parser.add_argument("--num_shards", type=int, default=16, help="num_shards")
 
     args = parser.parse_args()
 
@@ -41,15 +43,17 @@ def main():
     for shard_id in range(num_shards):
         print("shard_id ", shard_id)
         path = os.path.join(args.lmdb_path, f"shard_{shard_id}")
-        env = lmdb.open(path,
-                        map_size=map_size,
-                        subdir=True,       # set to True if you want a directory per env
-                        readonly=False,
-                        metasync=True,
-                        sync=True,
-                        lock=True,
-                        readahead=False,
-                        meminit=False)
+        env = lmdb.open(
+            path,
+            map_size=map_size,
+            subdir=True,  # set to True if you want a directory per env
+            readonly=False,
+            metasync=True,
+            sync=True,
+            lock=True,
+            readahead=False,
+            meminit=False,
+        )
         envs.append(env)
 
     counters = [0] * num_shards
@@ -58,7 +62,9 @@ def main():
     all_files = []
 
     for part_dir in all_dirs:
-        all_files += sorted(glob.glob(os.path.join(args.data_path, part_dir, "*.pt")))
+        all_files += sorted(
+            glob.glob(os.path.join(args.data_path, part_dir, "*.pt"))
+        )
 
     # 2) Prepare a write transaction for each shard
     for idx, file in tqdm(enumerate(all_files)):
@@ -74,8 +80,10 @@ def main():
 
         shard_id = idx % num_shards
         # write to lmdb file
-        store_arrays_to_lmdb(envs[shard_id], data_dict, start_index=counters[shard_id])
-        counters[shard_id] += len(data_dict['prompts'])
+        store_arrays_to_lmdb(
+            envs[shard_id], data_dict, start_index=counters[shard_id]
+        )
+        counters[shard_id] += len(data_dict["prompts"])
         data_shape = data_dict["latents"].shape
 
     total_samples += len(all_files)
@@ -85,7 +93,7 @@ def main():
     # save each entry's shape to lmdb
     for shard_id, env in enumerate(envs):
         with env.begin(write=True) as txn:
-            for key, val in (data_dict.items()):
+            for key, val in data_dict.items():
                 assert len(data_shape) == 5
                 array_shape = np.array(data_shape)  # val.shape)
                 array_shape[0] = counters[shard_id]
@@ -94,7 +102,9 @@ def main():
                 shape_str = " ".join(map(str, array_shape))
                 txn.put(shape_key, shape_str.encode())
 
-    print(f"Finished writing {total_samples} examples into {num_shards} shards under {args.lmdb_path}")
+    print(
+        f"Finished writing {total_samples} examples into {num_shards} shards under {args.lmdb_path}"
+    )
 
 
 if __name__ == "__main__":

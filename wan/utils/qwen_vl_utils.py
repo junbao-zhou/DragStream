@@ -51,11 +51,13 @@ def floor_by_factor(number: int, factor: int) -> int:
     return math.floor(number / factor) * factor
 
 
-def smart_resize(height: int,
-                 width: int,
-                 factor: int = IMAGE_FACTOR,
-                 min_pixels: int = MIN_PIXELS,
-                 max_pixels: int = MAX_PIXELS) -> tuple[int, int]:
+def smart_resize(
+    height: int,
+    width: int,
+    factor: int = IMAGE_FACTOR,
+    min_pixels: int = MIN_PIXELS,
+    max_pixels: int = MAX_PIXELS,
+) -> tuple[int, int]:
     """
     Rescales the image so that the following conditions are met:
 
@@ -82,8 +84,9 @@ def smart_resize(height: int,
     return h_bar, w_bar
 
 
-def fetch_image(ele: dict[str, str | Image.Image],
-                size_factor: int = IMAGE_FACTOR) -> Image.Image:
+def fetch_image(
+    ele: dict[str, str | Image.Image], size_factor: int = IMAGE_FACTOR
+) -> Image.Image:
     if "image" in ele:
         image = ele["image"]
     else:
@@ -153,17 +156,20 @@ def smart_nframes(
     Returns:
         int: the number of frames for video used for model inputs.
     """
-    assert not ("fps" in ele and
-                "nframes" in ele), "Only accept either `fps` or `nframes`"
+    assert not (
+        "fps" in ele and "nframes" in ele
+    ), "Only accept either `fps` or `nframes`"
     if "nframes" in ele:
         nframes = round_by_factor(ele["nframes"], FRAME_FACTOR)
     else:
         fps = ele.get("fps", FPS)
         min_frames = ceil_by_factor(
-            ele.get("min_frames", FPS_MIN_FRAMES), FRAME_FACTOR)
+            ele.get("min_frames", FPS_MIN_FRAMES), FRAME_FACTOR
+        )
         max_frames = floor_by_factor(
             ele.get("max_frames", min(FPS_MAX_FRAMES, total_frames)),
-            FRAME_FACTOR)
+            FRAME_FACTOR,
+        )
         nframes = total_frames / video_fps * fps
         nframes = min(max(nframes, min_frames), max_frames)
         nframes = round_by_factor(nframes, FRAME_FACTOR)
@@ -174,7 +180,9 @@ def smart_nframes(
     return nframes
 
 
-def _read_video_torchvision(ele: dict,) -> torch.Tensor:
+def _read_video_torchvision(
+    ele: dict,
+) -> torch.Tensor:
     """read video using torchvision.io.read_video
 
     Args:
@@ -218,7 +226,9 @@ def is_decord_available() -> bool:
     return importlib.util.find_spec("decord") is not None
 
 
-def _read_video_decord(ele: dict,) -> torch.Tensor:
+def _read_video_decord(
+    ele: dict,
+) -> torch.Tensor:
     """read video using decord.VideoReader
 
     Args:
@@ -231,13 +241,15 @@ def _read_video_decord(ele: dict,) -> torch.Tensor:
         torch.Tensor: the video tensor with shape (T, C, H, W).
     """
     import decord
+
     video_path = ele["video"]
     st = time.time()
     vr = decord.VideoReader(video_path)
     # TODO: support start_pts and end_pts
-    if 'video_start' in ele or 'video_end' in ele:
+    if "video_start" in ele or "video_end" in ele:
         raise NotImplementedError(
-            "not support start_pts and end_pts in decord for now.")
+            "not support start_pts and end_pts in decord for now."
+        )
     total_frames, video_fps = len(vr), vr.get_avg_fps()
     logger.info(
         f"decord:  {video_path=}, {total_frames=}, {video_fps=}, time={time.time() - st:.3f}s"
@@ -267,13 +279,14 @@ def get_video_reader_backend() -> str:
         video_reader_backend = "torchvision"
     print(
         f"qwen-vl-utils using {video_reader_backend} to read video.",
-        file=sys.stderr)
+        file=sys.stderr,
+    )
     return video_reader_backend
 
 
 def fetch_video(
-        ele: dict,
-        image_factor: int = IMAGE_FACTOR) -> torch.Tensor | list[Image.Image]:
+    ele: dict, image_factor: int = IMAGE_FACTOR
+) -> torch.Tensor | list[Image.Image]:
     if isinstance(ele["video"], str):
         video_reader_backend = get_video_reader_backend()
         video = VIDEO_READER_BACKENDS[video_reader_backend](ele)
@@ -283,7 +296,8 @@ def fetch_video(
         total_pixels = ele.get("total_pixels", VIDEO_TOTAL_PIXELS)
         max_pixels = max(
             min(VIDEO_MAX_PIXELS, total_pixels / nframes * FRAME_FACTOR),
-            int(min_pixels * 1.05))
+            int(min_pixels * 1.05),
+        )
         max_pixels = ele.get("max_pixels", max_pixels)
         if "resized_height" in ele and "resized_width" in ele:
             resized_height, resized_width = smart_resize(
@@ -312,11 +326,10 @@ def fetch_video(
         process_info.pop("type", None)
         process_info.pop("video", None)
         images = [
-            fetch_image({
-                "image": video_element,
-                **process_info
-            },
-                size_factor=image_factor)
+            fetch_image(
+                {"image": video_element, **process_info},
+                size_factor=image_factor,
+            )
             for video_element in ele["video"]
         ]
         nframes = ceil_by_factor(len(images), FRAME_FACTOR)
@@ -326,7 +339,8 @@ def fetch_video(
 
 
 def extract_vision_info(
-        conversations: list[dict] | list[list[dict]]) -> list[dict]:
+    conversations: list[dict] | list[list[dict]],
+) -> list[dict]:
     vision_infos = []
     if isinstance(conversations[0], dict):
         conversations = [conversations]
@@ -334,17 +348,21 @@ def extract_vision_info(
         for message in conversation:
             if isinstance(message["content"], list):
                 for ele in message["content"]:
-                    if ("image" in ele or "image_url" in ele or
-                            "video" in ele or
-                            ele["type"] in ("image", "image_url", "video")):
+                    if (
+                        "image" in ele
+                        or "image_url" in ele
+                        or "video" in ele
+                        or ele["type"] in ("image", "image_url", "video")
+                    ):
                         vision_infos.append(ele)
     return vision_infos
 
 
 def process_vision_info(
     conversations: list[dict] | list[list[dict]],
-) -> tuple[list[Image.Image] | None, list[torch.Tensor | list[Image.Image]] |
-           None]:
+) -> tuple[
+    list[Image.Image] | None, list[torch.Tensor | list[Image.Image]] | None
+]:
     vision_infos = extract_vision_info(conversations)
     # Read images or videos
     image_inputs = []

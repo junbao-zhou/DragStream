@@ -3,7 +3,12 @@ import os
 from omegaconf import OmegaConf
 import wandb
 
-from trainer import DiffusionTrainer, GANTrainer, ODETrainer, ScoreDistillationTrainer
+from trainer import (
+    DiffusionTrainer,
+    GANTrainer,
+    ODETrainer,
+    ScoreDistillationTrainer,
+)
 
 
 def main():
@@ -11,8 +16,18 @@ def main():
     parser.add_argument("--config_path", type=str, required=True)
     parser.add_argument("--no_save", action="store_true")
     parser.add_argument("--no_visualize", action="store_true")
-    parser.add_argument("--logdir", type=str, default="", help="Path to the directory to save logs")
-    parser.add_argument("--wandb-save-dir", type=str, default="", help="Path to the directory to save wandb logs")
+    parser.add_argument(
+        "--logdir",
+        type=str,
+        default="",
+        help="Path to the directory to save logs",
+    )
+    parser.add_argument(
+        "--wandb-save-dir",
+        type=str,
+        default="",
+        help="Path to the directory to save wandb logs",
+    )
     parser.add_argument("--disable-wandb", action="store_true")
 
     args = parser.parse_args()

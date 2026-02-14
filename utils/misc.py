@@ -3,7 +3,10 @@ import random
 import torch
 
 
-def set_seed(seed: int, deterministic: bool = False):
+def set_seed(
+    seed: int,
+    deterministic: bool = False,
+):
     """
     Helper function for reproducible behavior to set the seed in `random`, `numpy`, `torch`.
 
@@ -22,7 +25,9 @@ def set_seed(seed: int, deterministic: bool = False):
         torch.use_deterministic_algorithms(True)
 
 
-def merge_dict_list(dict_list):
+def merge_dict_list(
+    dict_list,
+):
     if len(dict_list) == 1:
         return dict_list[0]
 

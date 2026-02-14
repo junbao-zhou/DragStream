@@ -7,7 +7,11 @@ from model.base import SelfForcingModel
 
 
 class DMD(SelfForcingModel):
-    def __init__(self, args, device):
+    def __init__(
+        self,
+        args,
+        device,
+    ):
         """
         Initialize the DMD (Distribution Matching Distillation) module.
         This class is self-contained and compute generator and fake score losses
@@ -15,13 +19,17 @@ class DMD(SelfForcingModel):
         """
         super().__init__(args, device)
         self.num_frame_per_block = getattr(args, "num_frame_per_block", 1)
-        self.same_step_across_blocks = getattr(args, "same_step_across_blocks", True)
+        self.same_step_across_blocks = getattr(
+            args, "same_step_across_blocks", True
+        )
         self.num_training_frames = getattr(args, "num_training_frames", 21)
 
         if self.num_frame_per_block > 1:
             self.generator.model.num_frame_per_block = self.num_frame_per_block
 
-        self.independent_first_frame = getattr(args, "independent_first_frame", False)
+        self.independent_first_frame = getattr(
+            args, "independent_first_frame", False
+        )
         if self.independent_first_frame:
             self.generator.model.independent_first_frame = True
         if args.gradient_checkpointing:
@@ -47,16 +55,20 @@ class DMD(SelfForcingModel):
         self.min_score_timestep = getattr(args, "min_score_timestep", 0)
 
         if getattr(self.scheduler, "alphas_cumprod", None) is not None:
-            self.scheduler.alphas_cumprod = self.scheduler.alphas_cumprod.to(device)
+            self.scheduler.alphas_cumprod = self.scheduler.alphas_cumprod.to(
+                device
+            )
         else:
             self.scheduler.alphas_cumprod = None
 
     def _compute_kl_grad(
-        self, noisy_image_or_video: torch.Tensor,
+        self,
+        noisy_image_or_video: torch.Tensor,
         estimated_clean_image_or_video: torch.Tensor,
         timestep: torch.Tensor,
-        conditional_dict: dict, unconditional_dict: dict,
-        normalization: bool = True
+        conditional_dict: dict,
+        unconditional_dict: dict,
+        normalization: bool = True,
     ) -> Tuple[torch.Tensor, dict]:
         """
         Compute the KL grad (eq 7 in https://arxiv.org/abs/2311.18828).
@@ -75,18 +87,20 @@ class DMD(SelfForcingModel):
         _, pred_fake_image_cond = self.fake_score(
             noisy_image_or_video=noisy_image_or_video,
             conditional_dict=conditional_dict,
-            timestep=timestep
+            timestep=timestep,
         )
 
         if self.fake_guidance_scale != 0.0:
             _, pred_fake_image_uncond = self.fake_score(
                 noisy_image_or_video=noisy_image_or_video,
                 conditional_dict=unconditional_dict,
-                timestep=timestep
+                timestep=timestep,
             )
-            pred_fake_image = pred_fake_image_cond + (
-                pred_fake_image_cond - pred_fake_image_uncond
-            ) * self.fake_guidance_scale
+            pred_fake_image = (
+                pred_fake_image_cond
+                + (pred_fake_image_cond - pred_fake_image_uncond)
+                * self.fake_guidance_scale
+            )
         else:
             pred_fake_image = pred_fake_image_cond
 
@@ -96,33 +110,35 @@ class DMD(SelfForcingModel):
         _, pred_real_image_cond = self.real_score(
             noisy_image_or_video=noisy_image_or_video,
             conditional_dict=conditional_dict,
-            timestep=timestep
+            timestep=timestep,
         )
 
         _, pred_real_image_uncond = self.real_score(
             noisy_image_or_video=noisy_image_or_video,
             conditional_dict=unconditional_dict,
-            timestep=timestep
+            timestep=timestep,
         )
 
-        pred_real_image = pred_real_image_cond + (
-            pred_real_image_cond - pred_real_image_uncond
-        ) * self.real_guidance_scale
+        pred_real_image = (
+            pred_real_image_cond
+            + (pred_real_image_cond - pred_real_image_uncond)
+            * self.real_guidance_scale
+        )
 
         # Step 3: Compute the DMD gradient (DMD paper eq. 7).
-        grad = (pred_fake_image - pred_real_image)
+        grad = pred_fake_image - pred_real_image
 
         # TODO: Change the normalizer for causal teacher
         if normalization:
             # Step 4: Gradient normalization (DMD paper eq. 8).
-            p_real = (estimated_clean_image_or_video - pred_real_image)
+            p_real = estimated_clean_image_or_video - pred_real_image
             normalizer = torch.abs(p_real).mean(dim=[1, 2, 3, 4], keepdim=True)
             grad = grad / normalizer
         grad = torch.nan_to_num(grad)
 
         return grad, {
             "dmdtrain_gradient_norm": torch.mean(torch.abs(grad)).detach(),
-            "timestep": timestep.detach()
+            "timestep": timestep.detach(),
         }
 
     def compute_distribution_matching_loss(
@@ -132,7 +148,7 @@ class DMD(SelfForcingModel):
         unconditional_dict: dict,
         gradient_mask: Optional[torch.Tensor] = None,
         denoised_timestep_from: int = 0,
-        denoised_timestep_to: int = 0
+        denoised_timestep_to: int = 0,
     ) -> Tuple[torch.Tensor, dict]:
         """
         Compute the DMD loss (eq 7 in https://arxiv.org/abs/2311.18828).
@@ -151,30 +167,45 @@ class DMD(SelfForcingModel):
 
         with torch.no_grad():
             # Step 1: Randomly sample timestep based on the given schedule and corresponding noise
-            min_timestep = denoised_timestep_to if self.ts_schedule and denoised_timestep_to is not None else self.min_score_timestep
-            max_timestep = denoised_timestep_from if self.ts_schedule_max and denoised_timestep_from is not None else self.num_train_timestep
+            min_timestep = (
+                denoised_timestep_to
+                if self.ts_schedule and denoised_timestep_to is not None
+                else self.min_score_timestep
+            )
+            max_timestep = (
+                denoised_timestep_from
+                if self.ts_schedule_max and denoised_timestep_from is not None
+                else self.num_train_timestep
+            )
             timestep = self._get_timestep(
                 min_timestep,
                 max_timestep,
                 batch_size,
                 num_frame,
                 self.num_frame_per_block,
-                uniform_timestep=True
+                uniform_timestep=True,
             )
 
             # TODO:should we change it to `timestep = self.scheduler.timesteps[timestep]`?
             if self.timestep_shift > 1:
-                timestep = self.timestep_shift * \
-                    (timestep / 1000) / \
-                    (1 + (self.timestep_shift - 1) * (timestep / 1000)) * 1000
+                timestep = (
+                    self.timestep_shift
+                    * (timestep / 1000)
+                    / (1 + (self.timestep_shift - 1) * (timestep / 1000))
+                    * 1000
+                )
             timestep = timestep.clamp(self.min_step, self.max_step)
 
             noise = torch.randn_like(image_or_video)
-            noisy_latent = self.scheduler.add_noise(
-                image_or_video.flatten(0, 1),
-                noise.flatten(0, 1),
-                timestep.flatten(0, 1)
-            ).detach().unflatten(0, (batch_size, num_frame))
+            noisy_latent = (
+                self.scheduler.add_noise(
+                    image_or_video.flatten(0, 1),
+                    noise.flatten(0, 1),
+                    timestep.flatten(0, 1),
+                )
+                .detach()
+                .unflatten(0, (batch_size, num_frame))
+            )
 
             # Step 2: Compute the KL grad
             grad, dmd_log_dict = self._compute_kl_grad(
@@ -182,15 +213,23 @@ class DMD(SelfForcingModel):
                 estimated_clean_image_or_video=original_latent,
                 timestep=timestep,
                 conditional_dict=conditional_dict,
-                unconditional_dict=unconditional_dict
+                unconditional_dict=unconditional_dict,
             )
 
         if gradient_mask is not None:
-            dmd_loss = 0.5 * F.mse_loss(original_latent.double(
-            )[gradient_mask], (original_latent.double() - grad.double()).detach()[gradient_mask], reduction="mean")
+            dmd_loss = 0.5 * F.mse_loss(
+                original_latent.double()[gradient_mask],
+                (original_latent.double() - grad.double()).detach()[
+                    gradient_mask
+                ],
+                reduction="mean",
+            )
         else:
-            dmd_loss = 0.5 * F.mse_loss(original_latent.double(
-            ), (original_latent.double() - grad.double()).detach(), reduction="mean")
+            dmd_loss = 0.5 * F.mse_loss(
+                original_latent.double(),
+                (original_latent.double() - grad.double()).detach(),
+                reduction="mean",
+            )
         return dmd_loss, dmd_log_dict
 
     def generator_loss(
@@ -199,7 +238,7 @@ class DMD(SelfForcingModel):
         conditional_dict: dict,
         unconditional_dict: dict,
         clean_latent: torch.Tensor,
-        initial_latent: torch.Tensor = None
+        initial_latent: torch.Tensor = None,
     ) -> Tuple[torch.Tensor, dict]:
         """
         Generate image/videos from noise and compute the DMD loss.
@@ -216,10 +255,15 @@ class DMD(SelfForcingModel):
             - generator_log_dict: a dictionary containing the intermediate tensors for logging.
         """
         # Step 1: Unroll generator to obtain fake videos
-        pred_image, gradient_mask, denoised_timestep_from, denoised_timestep_to = self._run_generator(
+        (
+            pred_image,
+            gradient_mask,
+            denoised_timestep_from,
+            denoised_timestep_to,
+        ) = self._run_generator(
             image_or_video_shape=image_or_video_shape,
             conditional_dict=conditional_dict,
-            initial_latent=initial_latent
+            initial_latent=initial_latent,
         )
 
         # Step 2: Compute the DMD loss
@@ -229,7 +273,7 @@ class DMD(SelfForcingModel):
             unconditional_dict=unconditional_dict,
             gradient_mask=gradient_mask,
             denoised_timestep_from=denoised_timestep_from,
-            denoised_timestep_to=denoised_timestep_to
+            denoised_timestep_to=denoised_timestep_to,
         )
 
         return dmd_loss, dmd_log_dict
@@ -240,7 +284,7 @@ class DMD(SelfForcingModel):
         conditional_dict: dict,
         unconditional_dict: dict,
         clean_latent: torch.Tensor,
-        initial_latent: torch.Tensor = None
+        initial_latent: torch.Tensor = None,
     ) -> Tuple[torch.Tensor, dict]:
         """
         Generate image/videos from noise and train the critic with generated samples.
@@ -259,27 +303,41 @@ class DMD(SelfForcingModel):
 
         # Step 1: Run generator on backward simulated noisy input
         with torch.no_grad():
-            generated_image, _, denoised_timestep_from, denoised_timestep_to = self._run_generator(
-                image_or_video_shape=image_or_video_shape,
-                conditional_dict=conditional_dict,
-                initial_latent=initial_latent
+            generated_image, _, denoised_timestep_from, denoised_timestep_to = (
+                self._run_generator(
+                    image_or_video_shape=image_or_video_shape,
+                    conditional_dict=conditional_dict,
+                    initial_latent=initial_latent,
+                )
             )
 
         # Step 2: Compute the fake prediction
-        min_timestep = denoised_timestep_to if self.ts_schedule and denoised_timestep_to is not None else self.min_score_timestep
-        max_timestep = denoised_timestep_from if self.ts_schedule_max and denoised_timestep_from is not None else self.num_train_timestep
+        min_timestep = (
+            denoised_timestep_to
+            if self.ts_schedule and denoised_timestep_to is not None
+            else self.min_score_timestep
+        )
+        max_timestep = (
+            denoised_timestep_from
+            if self.ts_schedule_max and denoised_timestep_from is not None
+            else self.num_train_timestep
+        )
         critic_timestep = self._get_timestep(
             min_timestep,
             max_timestep,
             image_or_video_shape[0],
             image_or_video_shape[1],
             self.num_frame_per_block,
-            uniform_timestep=True
+            uniform_timestep=True,
         )
 
         if self.timestep_shift > 1:
-            critic_timestep = self.timestep_shift * \
-                (critic_timestep / 1000) / (1 + (self.timestep_shift - 1) * (critic_timestep / 1000)) * 1000
+            critic_timestep = (
+                self.timestep_shift
+                * (critic_timestep / 1000)
+                / (1 + (self.timestep_shift - 1) * (critic_timestep / 1000))
+                * 1000
+            )
 
         critic_timestep = critic_timestep.clamp(self.min_step, self.max_step)
 
@@ -287,23 +345,24 @@ class DMD(SelfForcingModel):
         noisy_generated_image = self.scheduler.add_noise(
             generated_image.flatten(0, 1),
             critic_noise.flatten(0, 1),
-            critic_timestep.flatten(0, 1)
+            critic_timestep.flatten(0, 1),
         ).unflatten(0, image_or_video_shape[:2])
 
         _, pred_fake_image = self.fake_score(
             noisy_image_or_video=noisy_generated_image,
             conditional_dict=conditional_dict,
-            timestep=critic_timestep
+            timestep=critic_timestep,
         )
 
         # Step 3: Compute the denoising loss for the fake critic
         if self.args.denoising_loss_type == "flow":
             from utils.wan_wrapper import WanDiffusionWrapper
+
             flow_pred = WanDiffusionWrapper._convert_x0_to_flow_pred(
                 scheduler=self.scheduler,
                 x0_pred=pred_fake_image.flatten(0, 1),
                 xt=noisy_generated_image.flatten(0, 1),
-                timestep=critic_timestep.flatten(0, 1)
+                timestep=critic_timestep.flatten(0, 1),
             )
             pred_fake_noise = None
         else:
@@ -311,7 +370,7 @@ class DMD(SelfForcingModel):
             pred_fake_noise = self.scheduler.convert_x0_to_noise(
                 x0=pred_fake_image.flatten(0, 1),
                 xt=noisy_generated_image.flatten(0, 1),
-                timestep=critic_timestep.flatten(0, 1)
+                timestep=critic_timestep.flatten(0, 1),
             ).unflatten(0, image_or_video_shape[:2])
 
         denoising_loss = self.denoising_loss_func(
@@ -321,12 +380,10 @@ class DMD(SelfForcingModel):
             noise_pred=pred_fake_noise,
             alphas_cumprod=self.scheduler.alphas_cumprod,
             timestep=critic_timestep.flatten(0, 1),
-            flow_pred=flow_pred
+            flow_pred=flow_pred,
         )
 
         # Step 5: Debugging Log
-        critic_log_dict = {
-            "critic_timestep": critic_timestep.detach()
-        }
+        critic_log_dict = {"critic_timestep": critic_timestep.detach()}
 
         return denoising_loss, critic_log_dict
