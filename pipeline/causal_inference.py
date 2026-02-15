@@ -1,3 +1,4 @@
+import time
 from typing import List, Optional
 import torch
 
@@ -77,6 +78,8 @@ class CausalInferencePipeline(torch.nn.Module):
         return_latents: bool = False,
         profile: bool = False,
         low_memory: bool = False,
+        do_not_decode_video: bool = False,
+        do_not_recompute_initial_latents: bool = False,
     ) -> torch.Tensor:
         """
         Perform inference on the given noise and text prompts.
@@ -150,17 +153,12 @@ class CausalInferencePipeline(torch.nn.Module):
                 batch_size=batch_size, dtype=noise.dtype, device=noise.device
             )
         else:
-            # reset cross attn cache
-            for block_index in range(self.num_transformer_blocks):
-                self.crossattn_cache[block_index]["is_init"] = False
-            # reset kv cache
-            for block_index in range(len(self.kv_cache1)):
-                self.kv_cache1[block_index]["global_end_index"] = torch.tensor(
-                    [0], dtype=torch.long, device=noise.device
-                )
-                self.kv_cache1[block_index]["local_end_index"] = torch.tensor(
-                    [0], dtype=torch.long, device=noise.device
-                )
+            if do_not_recompute_initial_latents:
+                pass
+            else:
+                print(f"Resetting caches")
+                self._reset_crossattn_cache()
+                self._reset_kv_cache()
 
         # Step 2: Cache context feature
         current_start_frame = 0
@@ -178,14 +176,19 @@ class CausalInferencePipeline(torch.nn.Module):
                     num_input_frames - 1
                 ) // self.num_frame_per_block
                 output[:, :1] = initial_latent[:, :1]
-                self.generator(
-                    noisy_image_or_video=initial_latent[:, :1],
-                    conditional_dict=conditional_dict,
-                    timestep=timestep * 0,
-                    kv_cache=self.kv_cache1,
-                    crossattn_cache=self.crossattn_cache,
-                    current_start=current_start_frame * self.frame_seq_length,
-                )
+                if do_not_recompute_initial_latents:
+                    pass
+                else:
+                    print(f"Recompute KV cache based on Initial Latents")
+                    self.generator(
+                        noisy_image_or_video=initial_latent[:, :1],
+                        conditional_dict=conditional_dict,
+                        timestep=timestep * 0,
+                        kv_cache=self.kv_cache1,
+                        crossattn_cache=self.crossattn_cache,
+                        current_start=current_start_frame
+                        * self.frame_seq_length,
+                    )
                 current_start_frame += 1
             else:
                 # Assume num_input_frames is self.num_frame_per_block * num_input_blocks
@@ -203,14 +206,19 @@ class CausalInferencePipeline(torch.nn.Module):
                     current_start_frame : current_start_frame
                     + self.num_frame_per_block,
                 ] = current_ref_latents
-                self.generator(
-                    noisy_image_or_video=current_ref_latents,
-                    conditional_dict=conditional_dict,
-                    timestep=timestep * 0,
-                    kv_cache=self.kv_cache1,
-                    crossattn_cache=self.crossattn_cache,
-                    current_start=current_start_frame * self.frame_seq_length,
-                )
+                if do_not_recompute_initial_latents:
+                    pass
+                else:
+                    print(f"Recompute KV cache based on Initial Latents")
+                    self.generator(
+                        noisy_image_or_video=current_ref_latents,
+                        conditional_dict=conditional_dict,
+                        timestep=timestep * 0,
+                        kv_cache=self.kv_cache1,
+                        crossattn_cache=self.crossattn_cache,
+                        current_start=current_start_frame
+                        * self.frame_seq_length,
+                    )
                 current_start_frame += self.num_frame_per_block
 
         if profile:
@@ -317,8 +325,13 @@ class CausalInferencePipeline(torch.nn.Module):
             vae_start.record()
 
         # Step 4: Decode the output
-        video = self.vae.decode_to_pixel(output, use_cache=False)
-        video = (video * 0.5 + 0.5).clamp(0, 1)
+        if not do_not_decode_video:
+            start_decode_time = time.time()
+            video = self.vae.decode_to_pixel(output, use_cache=False)
+            video = (video * 0.5 + 0.5).clamp(0, 1)
+            print(
+                f"{self.__class__.__name__}.inference() VAE decode time: {time.time() - start_decode_time:.2f} seconds"
+            )
 
         if profile:
             # End VAE timing and synchronize CUDA
@@ -343,10 +356,18 @@ class CausalInferencePipeline(torch.nn.Module):
             )
             print(f"  - Total time: {total_time:.2f} ms")
 
+        return_values = []
+        if not do_not_decode_video:
+            return_values.append(video)
         if return_latents:
-            return video, output
+            return_values.append(output)
+
+        if len(return_values) == 0:
+            return
+        elif len(return_values) == 1:
+            return return_values[0]
         else:
-            return video
+            return tuple(return_values)
 
     def _initialize_kv_cache(
         self,
@@ -357,13 +378,23 @@ class CausalInferencePipeline(torch.nn.Module):
         """
         Initialize a Per-GPU KV cache for the Wan model.
         """
+        print(
+            f"""
+{type(self).__name__}._initialize_kv_cache
+    {batch_size = }
+    {dtype = }
+    {device = }
+"""
+        )
         kv_cache1 = []
         if self.local_attn_size != -1:
+            print(f"use {self.local_attn_size = }")
             # Use the local attention size to compute the KV cache size
             kv_cache_size = self.local_attn_size * self.frame_seq_length
         else:
             # Use the default KV cache size
             kv_cache_size = 32760
+        print(f"{kv_cache_size = }")
 
         for _ in range(self.num_transformer_blocks):
             kv_cache1.append(
@@ -398,6 +429,14 @@ class CausalInferencePipeline(torch.nn.Module):
         """
         Initialize a Per-GPU cross-attention cache for the Wan model.
         """
+        print(
+            f"""
+{type(self).__name__}._initialize_crossattn_cache
+    {batch_size = }
+    {dtype = }
+    {device = }
+"""
+        )
         crossattn_cache = []
 
         for _ in range(self.num_transformer_blocks):
@@ -413,3 +452,33 @@ class CausalInferencePipeline(torch.nn.Module):
                 }
             )
         self.crossattn_cache = crossattn_cache
+
+    def _reset_crossattn_cache(self):
+        # reset cross attn cache
+        print(f"{type(self).__name__}._reset_crossattn_cache")
+        for block_index in range(self.num_transformer_blocks):
+            self.crossattn_cache[block_index]["is_init"] = False
+
+    def _reset_kv_cache(self):
+        # reset kv cache
+        print(f"{type(self).__name__}._reset_kv_cache")
+        for block_index in range(len(self.kv_cache1)):
+            self.kv_cache1[block_index]["global_end_index"] = torch.tensor(
+                [0],
+                dtype=torch.long,
+                device=self.kv_cache1[block_index]["global_end_index"].device,
+            )
+            self.kv_cache1[block_index]["local_end_index"] = torch.tensor(
+                [0],
+                dtype=torch.long,
+                device=self.kv_cache1[block_index]["local_end_index"].device,
+            )
+
+    def is_kv_cache_initialized(self):
+        return hasattr(self, "kv_cache1") and self.kv_cache1 is not None
+
+    def is_crossattn_cache_initialized(self):
+        return (
+            hasattr(self, "crossattn_cache")
+            and self.crossattn_cache is not None
+        )

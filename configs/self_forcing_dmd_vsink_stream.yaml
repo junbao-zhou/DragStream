@@ -1,0 +1,5 @@
+defaults:
+  - self_forcing_dmd_vsink
+  - _self_
+
+vae_offload_cpu: false

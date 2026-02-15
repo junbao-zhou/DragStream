@@ -28,6 +28,7 @@ from pathlib import Path
 config_name = "self_forcing_dmd_vsink"
 output_chunk_number = 21
 output_latent_frame_number = 21
+# output_latent_frame_number = 81
 seed = 42
 import sys
 
@@ -250,6 +251,7 @@ for i, batch_data in tqdm(enumerate(dataloader), disable=(local_rank != 0)):
             dtype=torch.bfloat16,
         )
 
+    set_seed(args.seed)
     # Generate 81 frames
     video, latents = pipeline.inference(
         noise=sampled_noise,
