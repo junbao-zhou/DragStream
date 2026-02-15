@@ -1,5 +1,6 @@
 import argparse
 import os
+
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import torch
 from omegaconf import OmegaConf
@@ -27,12 +28,13 @@ from pathlib import Path
 config_name = "self_forcing_dmd_vsink"
 output_chunk_number = 21
 output_latent_frame_number = 21
+seed = 42
 import sys
 
 sys.argv.extend(
     [
         "--output_folder",
-        f"outputs/{output_latent_frame_number}-{config_name}",
+        f"outputs/{output_latent_frame_number}-{config_name}-seed{seed}",
         # f"outputs-test/{output_latent_frame_number}-{config_name}",
         "--config_dir",
         "configs",
@@ -45,13 +47,17 @@ sys.argv.extend(
         "--checkpoint_path",
         "./checkpoints/self_forcing_dmd.pt",
         "--use_ema",
+        "--seed",
+        f"{seed}",
     ]
 )
 print(f"{sys.argv = }")
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--config_dir", type=str, help="Directory to the config file")
+parser.add_argument(
+    "--config_dir", type=str, help="Directory to the config file"
+)
 parser.add_argument("--config_name", type=str, help="Name to the config file")
 parser.add_argument(
     "--checkpoint_path", type=str, help="Path to the checkpoint folder"
@@ -198,6 +204,7 @@ for i, batch_data in tqdm(enumerate(dataloader), disable=(local_rank != 0)):
     all_video = []
     num_generated_frames = 0  # Number of generated (latent) frames
 
+    set_seed(args.seed)
     if args.i2v:
         # For image-to-video, batch contains image and caption
         prompt = batch["prompts"][0]  # Get caption from batch
