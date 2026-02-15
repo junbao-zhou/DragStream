@@ -149,8 +149,7 @@ class Trainer:
             num_workers=8,
         )
 
-        if dist.get_rank() == 0:
-            print("DATASET SIZE %d" % len(dataset))
+        logging.info("DATASET SIZE %d" % len(dataset))
         self.dataloader = cycle(dataloader)
 
         ##############################################################################################################
@@ -170,7 +169,7 @@ class Trainer:
         ema_weight = config.ema_weight
         self.generator_ema = None
         if (ema_weight is not None) and (ema_weight > 0.0):
-            print(f"Setting up EMA with weight {ema_weight}")
+            logging.info(f"Setting up EMA with weight {ema_weight}")
             self.generator_ema = EMA_FSDP(
                 self.model.generator, decay=ema_weight
             )
@@ -178,7 +177,7 @@ class Trainer:
         ##############################################################################################################
         # 7. (If resuming) Load the model and optimizer, lr_scheduler, ema's statedicts
         if getattr(config, "generator_ckpt", False):
-            print(f"Loading pretrained generator from {config.generator_ckpt}")
+            logging.info(f"Loading pretrained generator from {config.generator_ckpt}")
             state_dict = torch.load(config.generator_ckpt, map_location="cpu")
             if "generator" in state_dict:
                 state_dict = state_dict["generator"]
@@ -203,7 +202,7 @@ class Trainer:
     def save(
         self,
     ):
-        print("Start gathering distributed model states...")
+        logging.info("Start gathering distributed model states...")
         generator_state_dict = fsdp_state_dict(self.model.generator)
         critic_state_dict = fsdp_state_dict(self.model.fake_score)
 
@@ -234,7 +233,7 @@ class Trainer:
                     "model.pt",
                 ),
             )
-            print(
+            logging.info(
                 "Model saved to",
                 os.path.join(
                     self.output_path,
@@ -248,6 +247,14 @@ class Trainer:
         batch,
         train_generator,
     ):
+        logging.info(
+            f"""
+{self.__class__.__name__} fwdbwd_one_step (
+    {batch = }
+    {train_generator = }
+)
+"""
+        )
         self.model.eval()  # prevent any randomness (e.g. dropout)
 
         if self.step % 20 == 0:

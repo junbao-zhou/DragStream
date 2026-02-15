@@ -1,6 +1,7 @@
 import argparse
-import torch
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+import torch
 from omegaconf import OmegaConf
 from tqdm import tqdm
 from torchvision import transforms
@@ -16,11 +17,42 @@ from pipeline import (
 )
 from utils.dataset import TextDataset, TextImagePairDataset
 from utils.misc import set_seed
+from hydra import initialize, compose
+from hydra.core.global_hydra import GlobalHydra
 
 from demo_utils.memory import gpu, get_cuda_free_memory_gb, DynamicSwapInstaller
 
+from pathlib import Path
+
+config_name = "self_forcing_dmd_vsink"
+output_chunk_number = 21
+output_latent_frame_number = 21
+import sys
+
+sys.argv.extend(
+    [
+        "--output_folder",
+        f"outputs/{output_latent_frame_number}-{config_name}",
+        # f"outputs-test/{output_latent_frame_number}-{config_name}",
+        "--config_dir",
+        "configs",
+        "--config_name",
+        config_name,
+        "--num_output_frames",
+        f"{output_latent_frame_number}",
+        "--data_path",
+        "prompts/MovieGenVideoBench_extended.txt",
+        "--checkpoint_path",
+        "./checkpoints/self_forcing_dmd.pt",
+        "--use_ema",
+    ]
+)
+print(f"{sys.argv = }")
+
+
 parser = argparse.ArgumentParser()
-parser.add_argument("--config_path", type=str, help="Path to the config file")
+parser.add_argument("--config_dir", type=str, help="Directory to the config file")
+parser.add_argument("--config_name", type=str, help="Name to the config file")
 parser.add_argument(
     "--checkpoint_path", type=str, help="Path to the checkpoint folder"
 )
@@ -71,9 +103,12 @@ low_memory = get_cuda_free_memory_gb(gpu) < 40
 
 torch.set_grad_enabled(False)
 
-config = OmegaConf.load(args.config_path)
-default_config = OmegaConf.load("configs/default_config.yaml")
-config = OmegaConf.merge(default_config, config)
+if GlobalHydra.instance().is_initialized():
+    GlobalHydra.instance().clear()
+
+with initialize(version_base=None, config_path=args.config_dir):
+    config = compose(config_name=args.config_name)
+print(f"{config = }")
 
 # Initialize pipeline
 if hasattr(config, "denoising_step_list"):
