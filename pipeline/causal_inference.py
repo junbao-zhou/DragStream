@@ -263,8 +263,7 @@ class CausalInferencePipeline(torch.nn.Module):
                     timestep=timestep,
                     kv_cache=self.kv_cache1,
                     crossattn_cache=self.crossattn_cache,
-                    current_start=current_start_frame
-                    * self.frame_seq_length,
+                    current_start=current_start_frame * self.frame_seq_length,
                 )
 
                 if time_step_index < len(self.denoising_step_list) - 1:
