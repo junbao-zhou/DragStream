@@ -243,7 +243,7 @@ class CausalInferencePipeline(torch.nn.Module):
             ]
 
             # Step 3.1: Spatial denoising loop
-            for index, current_timestep in enumerate(self.denoising_step_list):
+            for time_step_index, current_timestep in enumerate(self.denoising_step_list):
                 print(f"current_timestep: {current_timestep}")
                 # set current timestep
                 timestep = (
@@ -265,8 +265,8 @@ class CausalInferencePipeline(torch.nn.Module):
                     * self.frame_seq_length,
                 )
 
-                if index < len(self.denoising_step_list) - 1:
-                    next_timestep = self.denoising_step_list[index + 1]
+                if time_step_index < len(self.denoising_step_list) - 1:
+                    next_timestep = self.denoising_step_list[time_step_index + 1]
                     noisy_input = self.scheduler.add_noise(
                         denoised_pred.flatten(0, 1),
                         torch.randn_like(denoised_pred.flatten(0, 1)),
