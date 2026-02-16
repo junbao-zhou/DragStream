@@ -255,16 +255,17 @@ class CausalInferencePipeline(torch.nn.Module):
                     * current_timestep
                 )
 
+                _, denoised_pred = self.generator(
+                    noisy_image_or_video=noisy_input,
+                    conditional_dict=conditional_dict,
+                    timestep=timestep,
+                    kv_cache=self.kv_cache1,
+                    crossattn_cache=self.crossattn_cache,
+                    current_start=current_start_frame
+                    * self.frame_seq_length,
+                )
+
                 if index < len(self.denoising_step_list) - 1:
-                    _, denoised_pred = self.generator(
-                        noisy_image_or_video=noisy_input,
-                        conditional_dict=conditional_dict,
-                        timestep=timestep,
-                        kv_cache=self.kv_cache1,
-                        crossattn_cache=self.crossattn_cache,
-                        current_start=current_start_frame
-                        * self.frame_seq_length,
-                    )
                     next_timestep = self.denoising_step_list[index + 1]
                     noisy_input = self.scheduler.add_noise(
                         denoised_pred.flatten(0, 1),
@@ -276,17 +277,6 @@ class CausalInferencePipeline(torch.nn.Module):
                             dtype=torch.long,
                         ),
                     ).unflatten(0, denoised_pred.shape[:2])
-                else:
-                    # for getting real output
-                    _, denoised_pred = self.generator(
-                        noisy_image_or_video=noisy_input,
-                        conditional_dict=conditional_dict,
-                        timestep=timestep,
-                        kv_cache=self.kv_cache1,
-                        crossattn_cache=self.crossattn_cache,
-                        current_start=current_start_frame
-                        * self.frame_seq_length,
-                    )
 
             # Step 3.2: record the model's output
             output[

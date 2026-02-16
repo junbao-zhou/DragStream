@@ -1,6 +1,5 @@
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 import argparse
 from pathlib import Path
 import time
