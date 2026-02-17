@@ -246,7 +246,7 @@ class CausalInferencePipeline(torch.nn.Module):
             for time_step_index, current_timestep in enumerate(
                 self.denoising_step_list
             ):
-                print(f"current_timestep: {current_timestep}")
+                print(f"{time_step_index = } ; {current_timestep = }")
                 # set current timestep
                 timestep = (
                     torch.ones(
