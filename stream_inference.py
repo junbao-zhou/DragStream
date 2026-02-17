@@ -7,6 +7,7 @@ from torchvision.io import write_video
 from torch.utils.data import DataLoader, SequentialSampler
 
 from stream_inference_wrapper import StreamInferenceWrapper
+
 # from stream_drag_inference_wrapper import StreamDragInferenceWrapper
 from utils.dataset import TextDataset
 from utils.misc import set_seed
@@ -41,9 +42,7 @@ def main():
     print(f"Number of prompts: {num_prompts}")
 
     sampler = SequentialSampler(dataset)
-    dataloader = DataLoader(
-        dataset, batch_size=1, sampler=sampler, num_workers=0, drop_last=False
-    )
+    dataloader = DataLoader(dataset, batch_size=1, sampler=sampler, num_workers=0, drop_last=False)
 
     os.makedirs(output_folder, exist_ok=True)
 
@@ -76,11 +75,7 @@ def main():
         # For text-to-video, batch is just the text prompt
         prompt = batch["prompts"][0]
         print(f"{prompt = }")
-        extended_prompt = (
-            batch["extended_prompts"][0]
-            if "extended_prompts" in batch
-            else None
-        )
+        extended_prompt = batch["extended_prompts"][0] if "extended_prompts" in batch else None
         print(f"{extended_prompt = }")
 
         set_seed(seed)

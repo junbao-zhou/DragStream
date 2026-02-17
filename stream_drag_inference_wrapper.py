@@ -47,9 +47,7 @@ def _extract_block_trajectories(
     for block_idx in range(max_blocks):
         block = []
         for traj in multi_traj.trajectories:
-            if traj.block_trajectories and block_idx < len(
-                traj.block_trajectories
-            ):
+            if traj.block_trajectories and block_idx < len(traj.block_trajectories):
                 block.append(traj.block_trajectories[block_idx])
             else:
                 # Provide an empty placeholder
@@ -65,8 +63,7 @@ def _extract_block_trajectories(
     # Assert: the N of each block in block_trajectories should equal the length of masks
     for block_idx, block in enumerate(block_trajectories):
         assert len(block) == len(masks), (
-            f"Block {block_idx} has {len(block)} trajectories, "
-            f"but there are {len(masks)} masks"
+            f"Block {block_idx} has {len(block)} trajectories, " f"but there are {len(masks)} masks"
         )
 
     assert ((len(block_trajectories) == 0) and (movable_mask is None)) or (
@@ -104,22 +101,18 @@ class StreamDragInferenceWrapper(StreamInferenceWrapper):
     ):
         assert start_block_index >= 0
         assert end_block_index > start_block_index
-        print(
-            f"""
+        print(f"""
 {self.__class__.__name__}.inference():
     {start_block_index = }  |  {end_block_index = }
-"""
-        )
-        sampled_noise = self.get_sampled_noise(
-            start_block_index, end_block_index
-        )
+""")
+        sampled_noise = self.get_sampled_noise(start_block_index, end_block_index)
         prompts = [prompt]
 
         # Extract block_trajectories, masks, and movable_mask from multiple_trajectory
         drag_optimize_target_latent_index = -1
         if multiple_trajectory is not None:
-            block_trajectories, masks, movable_mask = (
-                _extract_block_trajectories(multiple_trajectory)
+            block_trajectories, masks, movable_mask = _extract_block_trajectories(
+                multiple_trajectory
             )
             assert multiple_trajectory.drag_or_animation_select in [
                 "Drag",
@@ -159,9 +152,7 @@ class StreamDragInferenceWrapper(StreamInferenceWrapper):
             movable_mask=movable_mask,
             drag_optimize_target_latent_index=drag_optimize_target_latent_index,
         )
-        if (
-            self.stream_model_config.drag_optim_config.record_feature_block_indexes
-        ):
+        if self.stream_model_config.drag_optim_config.record_feature_block_indexes:
             latents, record_attention_values_list = latents_result
         else:
             latents = latents_result
@@ -182,9 +173,7 @@ class StreamDragInferenceWrapper(StreamInferenceWrapper):
             def dict_first_value(d: dict):
                 return next(iter(d.values()))
 
-            print(
-                f"{record_attention_values_list.keys() = }"
-            )  # denoising timesteps
+            print(f"{record_attention_values_list.keys() = }")  # denoising timesteps
             print(
                 f"{dict_first_value(record_attention_values_list).keys() = }"
             )  # attention block layers

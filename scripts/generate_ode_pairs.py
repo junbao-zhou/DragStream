@@ -17,9 +17,7 @@ def init_model(
     encoder = WanTextEncoder().to(device).to(torch.float32)
     model.model.requires_grad_(False)
 
-    scheduler = FlowMatchScheduler(
-        shift=8.0, sigma_min=0.0, extra_one_step=True
-    )
+    scheduler = FlowMatchScheduler(shift=8.0, sigma_min=0.0, extra_one_step=True)
     scheduler.set_timesteps(num_inference_steps=48, denoising_strength=1.0)
     scheduler.sigmas = scheduler.sigmas.to(device)
 
@@ -66,16 +64,12 @@ def main():
 
         conditional_dict = encoder(text_prompts=prompt)
 
-        latents = torch.randn(
-            [1, 21, 16, 60, 104], dtype=torch.float32, device=device
-        )
+        latents = torch.randn([1, 21, 16, 60, 104], dtype=torch.float32, device=device)
 
         noisy_input = []
 
         for progress_id, t in enumerate(tqdm(scheduler.timesteps)):
-            timestep = t * torch.ones(
-                [1, 21], device=device, dtype=torch.float32
-            )
+            timestep = t * torch.ones([1, 21], device=device, dtype=torch.float32)
 
             noisy_input.append(latents)
 
@@ -83,9 +77,7 @@ def main():
 
             _, x0_pred_uncond = model(latents, unconditional_dict, timestep)
 
-            x0_pred = x0_pred_uncond + args.guidance_scale * (
-                x0_pred_cond - x0_pred_uncond
-            )
+            x0_pred = x0_pred_uncond + args.guidance_scale * (x0_pred_cond - x0_pred_uncond)
 
             flow_pred = model._convert_x0_to_flow_pred(
                 scheduler=scheduler,
@@ -97,9 +89,7 @@ def main():
             latents = scheduler.step(
                 flow_pred.flatten(0, 1),
                 scheduler.timesteps[progress_id]
-                * torch.ones([1, 21], device=device, dtype=torch.long).flatten(
-                    0, 1
-                ),
+                * torch.ones([1, 21], device=device, dtype=torch.long).flatten(0, 1),
                 latents.flatten(0, 1),
             ).unflatten(dim=0, sizes=flow_pred.shape[:2])
 

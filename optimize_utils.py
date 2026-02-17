@@ -35,9 +35,7 @@ class Trajectory:
         self.original_trajectory = original_trajectory
         self.mask = mask
         if original_trajectory is not None:
-            self.block_trajectories = self.original_to_block_trajectories(
-                original_trajectory
-            )
+            self.block_trajectories = self.original_to_block_trajectories(original_trajectory)
         else:
             self.block_trajectories = []
 
@@ -80,10 +78,7 @@ class Trajectory:
             if len(points) < 1:
                 return []
             start_point = points[0]
-            deltas = [
-                torch.Tensor(point) - torch.Tensor(start_point)
-                for point in points[1:]
-            ]
+            deltas = [torch.Tensor(point) - torch.Tensor(start_point) for point in points[1:]]
 
         block_trajectories = []
         for i in range(0, len(deltas), block_length):
@@ -103,9 +98,7 @@ class Trajectory:
     ):
         self.original_trajectory = original_trajectory
         if original_trajectory is not None:
-            self.block_trajectories = self.original_to_block_trajectories(
-                original_trajectory
-            )
+            self.block_trajectories = self.original_to_block_trajectories(original_trajectory)
         else:
             self.block_trajectories = []
 
@@ -137,15 +130,11 @@ class Trajectory:
         result = {}
 
         if self.original_trajectory is not None:
-            result["original_trajectory"] = self._serialize_value(
-                self.original_trajectory
-            )
+            result["original_trajectory"] = self._serialize_value(self.original_trajectory)
         else:
             result["original_trajectory"] = None
 
-        result["block_trajectories"] = self._serialize_value(
-            self.block_trajectories
-        )
+        result["block_trajectories"] = self._serialize_value(self.block_trajectories)
 
         if mask_filename is not None:
             result["mask_file"] = mask_filename
@@ -217,9 +206,7 @@ class MultiTrajectory:
         # Save movable_mask
         if self.movable_mask is not None:
             movable_mask_filename = f"{prefix}_movable_mask.png"
-            save_mask_to_file(
-                self.movable_mask, save_dir / movable_mask_filename
-            )
+            save_mask_to_file(self.movable_mask, save_dir / movable_mask_filename)
             result["movable_area_mask_file"] = movable_mask_filename
         else:
             result["movable_area_mask_file"] = None

@@ -30,9 +30,7 @@ class ODERegression(BaseModel):
         self.generator.model.requires_grad_(True)
         if getattr(args, "generator_ckpt", False):
             print(f"Loading pretrained generator from {args.generator_ckpt}")
-            state_dict = torch.load(args.generator_ckpt, map_location="cpu")[
-                "generator"
-            ]
+            state_dict = torch.load(args.generator_ckpt, map_location="cpu")["generator"]
             self.generator.load_state_dict(state_dict, strict=True)
 
         self.num_frame_per_block = getattr(args, "num_frame_per_block", 1)
@@ -54,9 +52,7 @@ class ODERegression(BaseModel):
         self.timestep_shift = getattr(args, "timestep_shift", 1.0)
 
     def _initialize_models(self, args):
-        self.generator = WanDiffusionWrapper(
-            **getattr(args, "model_kwargs", {}), is_causal=True
-        )
+        self.generator = WanDiffusionWrapper(**getattr(args, "model_kwargs", {}), is_causal=True)
         self.generator.model.requires_grad_(True)
 
         self.text_encoder = WanTextEncoder()
@@ -141,9 +137,7 @@ class ODERegression(BaseModel):
         # Step 1: Run generator on noisy latents
         target_latent = ode_latent[:, -1]
 
-        noisy_input, timestep = self._prepare_generator_input(
-            ode_latent=ode_latent
-        )
+        noisy_input, timestep = self._prepare_generator_input(ode_latent=ode_latent)
 
         _, pred_image_or_video = self.generator(
             noisy_image_or_video=noisy_input,
@@ -154,14 +148,10 @@ class ODERegression(BaseModel):
         # Step 2: Compute the regression loss
         mask = timestep != 0
 
-        loss = F.mse_loss(
-            pred_image_or_video[mask], target_latent[mask], reduction="mean"
-        )
+        loss = F.mse_loss(pred_image_or_video[mask], target_latent[mask], reduction="mean")
 
         log_dict = {
-            "unnormalized_loss": F.mse_loss(
-                pred_image_or_video, target_latent, reduction="none"
-            )
+            "unnormalized_loss": F.mse_loss(pred_image_or_video, target_latent, reduction="none")
             .mean(dim=[1, 2, 3, 4])
             .detach(),
             "timestep": timestep.float().mean(dim=1).detach(),

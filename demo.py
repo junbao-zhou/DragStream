@@ -37,12 +37,8 @@ from demo_utils.memory import (
 parser = argparse.ArgumentParser()
 parser.add_argument("--port", type=int, default=5001)
 parser.add_argument("--host", type=str, default="0.0.0.0")
-parser.add_argument(
-    "--checkpoint_path", type=str, default="./checkpoints/self_forcing_dmd.pt"
-)
-parser.add_argument(
-    "--config_path", type=str, default="./configs/self_forcing_dmd.yaml"
-)
+parser.add_argument("--checkpoint_path", type=str, default="./checkpoints/self_forcing_dmd.pt")
+parser.add_argument("--config_path", type=str, default="./configs/self_forcing_dmd.yaml")
 parser.add_argument("--trt", action="store_true")
 args = parser.parse_args()
 
@@ -87,14 +83,10 @@ def initialize_vae_decoder(use_taehv=False, use_trt=False):
                 f"taew2_1.pth not found in checkpoints folder {taehv_checkpoint_path}. Downloading..."
             )
             os.makedirs("checkpoints", exist_ok=True)
-            download_url = (
-                "https://github.com/madebyollin/taehv/raw/main/taew2_1.pth"
-            )
+            download_url = "https://github.com/madebyollin/taehv/raw/main/taew2_1.pth"
             try:
                 urllib.request.urlretrieve(download_url, taehv_checkpoint_path)
-                print(
-                    f"Successfully downloaded taew2_1.pth to {taehv_checkpoint_path}"
-                )
+                print(f"Successfully downloaded taew2_1.pth to {taehv_checkpoint_path}")
             except Exception as e:
                 print(f"Failed to download taew2_1.pth: {e}")
                 raise
@@ -107,26 +99,18 @@ def initialize_vae_decoder(use_taehv=False, use_trt=False):
             def __init__(self):
                 super().__init__()
                 self.dtype = torch.float16
-                self.taehv = TAEHV(checkpoint_path=taehv_checkpoint_path).to(
-                    self.dtype
-                )
+                self.taehv = TAEHV(checkpoint_path=taehv_checkpoint_path).to(self.dtype)
                 self.config = DotDict(scaling_factor=1.0)
 
             def decode(self, latents, return_dict=None):
                 # n, c, t, h, w = latents.shape
                 # low-memory, set parallel=True for faster + higher memory
-                return (
-                    self.taehv.decode_video(latents, parallel=False)
-                    .mul_(2)
-                    .sub_(1)
-                )
+                return self.taehv.decode_video(latents, parallel=False).mul_(2).sub_(1)
 
         current_vae_decoder = TAEHVDiffusersWrapper()
     else:
         current_vae_decoder = VAEDecoderWrapper()
-        vae_state_dict = torch.load(
-            "wan_models/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth", map_location="cpu"
-        )
+        vae_state_dict = torch.load("wan_models/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth", map_location="cpu")
         decoder_state_dict = {}
         for key, value in vae_state_dict.items():
             if "decoder." in key or "conv2" in key:
@@ -139,9 +123,7 @@ def initialize_vae_decoder(use_taehv=False, use_trt=False):
     current_vae_decoder.to(gpu)
     current_use_taehv = use_taehv
 
-    print(
-        f"✅ VAE decoder initialized with {'TAEHV' if use_taehv else 'default VAE'}"
-    )
+    print(f"✅ VAE decoder initialized with {'TAEHV' if use_taehv else 'default VAE'}")
     return current_vae_decoder
 
 
@@ -305,9 +287,7 @@ def generate_video_stream(
         # Handle VAE decoder switching
         if use_taehv != current_use_taehv:
             emit_progress("Switching VAE decoder...", 2)
-            print(
-                f"🔄 Switching VAE decoder to {'TAEHV' if use_taehv else 'default VAE'}"
-            )
+            print(f"🔄 Switching VAE decoder to {'TAEHV' if use_taehv else 'default VAE'}")
             current_vae_decoder = initialize_vae_decoder(use_taehv=use_taehv)
             # Update pipeline with new VAE decoder
             pipeline.vae = current_vae_decoder
@@ -324,9 +304,7 @@ def generate_video_stream(
 
             quantize_(
                 transformer,
-                Float8DynamicActivationFloat8WeightConfig(
-                    granularity=PerTensor()
-                ),
+                Float8DynamicActivationFloat8WeightConfig(granularity=PerTensor()),
             )
             fp8_applied = True
 
@@ -357,16 +335,10 @@ def generate_video_stream(
         rnd = torch.Generator(gpu).manual_seed(seed)
         # all_latents = torch.zeros([1, 21, 16, 60, 104], device=gpu, dtype=torch.bfloat16)
 
-        pipeline._initialize_kv_cache(
-            batch_size=1, dtype=torch.float16, device=gpu
-        )
-        pipeline._initialize_crossattn_cache(
-            batch_size=1, dtype=torch.float16, device=gpu
-        )
+        pipeline._initialize_kv_cache(batch_size=1, dtype=torch.float16, device=gpu)
+        pipeline._initialize_crossattn_cache(batch_size=1, dtype=torch.float16, device=gpu)
 
-        noise = torch.randn(
-            [1, 21, 16, 60, 104], device=gpu, dtype=torch.float16, generator=rnd
-        )
+        noise = torch.randn([1, 21, 16, 60, 104], device=gpu, dtype=torch.float16, generator=rnd)
 
         # Generation parameters
         num_blocks = 7
@@ -418,9 +390,7 @@ def generate_video_stream(
 
             # Denoising loop
             denoising_start = time.time()
-            for index, current_timestep in enumerate(
-                pipeline.denoising_step_list
-            ):
+            for index, current_timestep in enumerate(pipeline.denoising_step_list):
                 if not generation_active or stop_event.is_set():
                     break
 
@@ -440,8 +410,7 @@ def generate_video_stream(
                         timestep=timestep,
                         kv_cache=pipeline.kv_cache1,
                         crossattn_cache=pipeline.crossattn_cache,
-                        current_start=current_start_frame
-                        * pipeline.frame_seq_length,
+                        current_start=current_start_frame * pipeline.frame_seq_length,
                     )
                     next_timestep = pipeline.denoising_step_list[index + 1]
                     noisy_input = pipeline.scheduler.add_noise(
@@ -461,17 +430,14 @@ def generate_video_stream(
                         timestep=timestep,
                         kv_cache=pipeline.kv_cache1,
                         crossattn_cache=pipeline.crossattn_cache,
-                        current_start=current_start_frame
-                        * pipeline.frame_seq_length,
+                        current_start=current_start_frame * pipeline.frame_seq_length,
                     )
 
             if not generation_active or stop_event.is_set():
                 break
 
             denoising_time = time.time() - denoising_start
-            print(
-                f"⚡ Block {idx+1} denoising completed in {denoising_time:.2f}s"
-            )
+            print(f"⚡ Block {idx+1} denoising completed in {denoising_time:.2f}s")
 
             # Record output
             # all_latents[:, current_start_frame:current_start_frame + current_num_frames] = denoised_pred
@@ -484,8 +450,7 @@ def generate_video_stream(
                     timestep=torch.zeros_like(timestep),
                     kv_cache=pipeline.kv_cache1,
                     crossattn_cache=pipeline.crossattn_cache,
-                    current_start=current_start_frame
-                    * pipeline.frame_seq_length,
+                    current_start=current_start_frame * pipeline.frame_seq_length,
                 )
 
             # Decode to pixels and send frames immediately
@@ -510,47 +475,33 @@ def generate_video_stream(
                     all_current_pixels.append(current_pixels.clone())
                 pixels = torch.cat(all_current_pixels, dim=1)
                 if idx == 0:
-                    pixels = pixels[
-                        :, 3:, :, :, :
-                    ]  # Skip first 3 frames of first block
+                    pixels = pixels[:, 3:, :, :, :]  # Skip first 3 frames of first block
             else:
                 if current_use_taehv:
                     if vae_cache is None:
                         vae_cache = denoised_pred
                     else:
-                        denoised_pred = torch.cat(
-                            [vae_cache, denoised_pred], dim=1
-                        )
+                        denoised_pred = torch.cat([vae_cache, denoised_pred], dim=1)
                         vae_cache = denoised_pred[:, -3:, :, :, :]
                     pixels = current_vae_decoder.decode(denoised_pred)
                     print(f"denoised_pred shape: {denoised_pred.shape}")
                     print(f"pixels shape: {pixels.shape}")
                     if idx == 0:
-                        pixels = pixels[
-                            :, 3:, :, :, :
-                        ]  # Skip first 3 frames of first block
+                        pixels = pixels[:, 3:, :, :, :]  # Skip first 3 frames of first block
                     else:
                         pixels = pixels[:, 12:, :, :, :]
 
                 else:
-                    pixels, vae_cache = current_vae_decoder(
-                        denoised_pred.half(), *vae_cache
-                    )
+                    pixels, vae_cache = current_vae_decoder(denoised_pred.half(), *vae_cache)
                     if idx == 0:
-                        pixels = pixels[
-                            :, 3:, :, :, :
-                        ]  # Skip first 3 frames of first block
+                        pixels = pixels[:, 3:, :, :, :]  # Skip first 3 frames of first block
 
             decode_time = time.time() - decode_start
-            print(
-                f"🎨 Block {idx+1} VAE decoding completed in {decode_time:.2f}s"
-            )
+            print(f"🎨 Block {idx+1} VAE decoding completed in {decode_time:.2f}s")
 
             # Queue frames for non-blocking sending
             block_frames = pixels.shape[1]
-            print(
-                f"📡 Queueing {block_frames} frames from block {idx+1} for sending..."
-            )
+            print(f"📡 Queueing {block_frames} frames from block {idx+1} for sending...")
             queue_start = time.time()
 
             for frame_idx in range(block_frames):
@@ -560,9 +511,7 @@ def generate_video_stream(
                 frame_tensor = pixels[0, frame_idx].cpu()
 
                 # Queue frame data in non-blocking way
-                frame_send_queue.put(
-                    (frame_tensor, total_frames_sent, idx, job_id)
-                )
+                frame_send_queue.put((frame_tensor, total_frames_sent, idx, job_id))
                 total_frames_sent += 1
 
             queue_time = time.time() - queue_start
@@ -584,9 +533,7 @@ def generate_video_stream(
         frame_send_queue.join()  # Wait for all queued frames to be processed
         print("✅ All frames sent successfully!")
 
-        generate_mp4_from_images(
-            "./images", "./videos/" + anim_name + ".mp4", frame_rate
-        )
+        generate_mp4_from_images("./images", "./videos/" + anim_name + ".mp4", frame_rate)
         # Final progress update
         emit_progress("Generation complete!", 100)
 
@@ -691,9 +638,7 @@ def handle_start_generation(data):
         seed = random.randint(0, 2**32)
 
     # Extract words up to the first punctuation or newline
-    words_up_to_punctuation = (
-        re.split(r"[^\w\s]", prompt)[0].strip() if prompt else ""
-    )
+    words_up_to_punctuation = re.split(r"[^\w\s]", prompt)[0].strip() if prompt else ""
     if not words_up_to_punctuation:
         words_up_to_punctuation = re.split(r"[\n\r]", prompt)[0].strip()
 

@@ -30,10 +30,7 @@ def pos_interpolate(pos, seq_len):
             [
                 pos[:, :n],
                 F.interpolate(
-                    pos[:, n:]
-                    .float()
-                    .reshape(1, src_grid, src_grid, -1)
-                    .permute(0, 3, 1, 2),
+                    pos[:, n:].float().reshape(1, src_grid, src_grid, -1).permute(0, 3, 1, 2),
                     size=(tar_grid, tar_grid),
                     mode="bicubic",
                     align_corners=False,
@@ -59,9 +56,7 @@ class LayerNorm(nn.LayerNorm):
 
 class SelfAttention(nn.Module):
 
-    def __init__(
-        self, dim, num_heads, causal=False, attn_dropout=0.0, proj_dropout=0.0
-    ):
+    def __init__(self, dim, num_heads, causal=False, attn_dropout=0.0, proj_dropout=0.0):
         assert dim % num_heads == 0
         super().__init__()
         self.dim = dim
@@ -138,9 +133,7 @@ class AttentionBlock(nn.Module):
 
         # layers
         self.norm1 = LayerNorm(dim, eps=norm_eps)
-        self.attn = SelfAttention(
-            dim, num_heads, causal, attn_dropout, proj_dropout
-        )
+        self.attn = SelfAttention(dim, num_heads, causal, attn_dropout, proj_dropout)
         self.norm2 = LayerNorm(dim, eps=norm_eps)
         if activation == "swi_glu":
             self.mlp = SwiGLU(dim, int(dim * mlp_ratio))
@@ -270,8 +263,7 @@ class VisionTransformer(nn.Module):
             gain
             * torch.randn(
                 1,
-                self.num_patches
-                + (1 if pool_type in ("token", "token_fc") else 0),
+                self.num_patches + (1 if pool_type in ("token", "token_fc") else 0),
                 dim,
             )
         )
@@ -303,9 +295,7 @@ class VisionTransformer(nn.Module):
         elif pool_type == "token_fc":
             self.head = nn.Linear(dim, out_dim)
         elif pool_type == "attn_pool":
-            self.head = AttentionPool(
-                dim, mlp_ratio, num_heads, activation, proj_dropout, norm_eps
-            )
+            self.head = AttentionPool(dim, mlp_ratio, num_heads, activation, proj_dropout, norm_eps)
 
     def forward(self, x, interpolation=False, use_31_block=False):
         b = x.size(0)
@@ -456,17 +446,13 @@ class XLMRobertaCLIP(nn.Module):
         groups = [
             {
                 "params": [
-                    p
-                    for n, p in self.named_parameters()
-                    if "norm" in n or n.endswith("bias")
+                    p for n, p in self.named_parameters() if "norm" in n or n.endswith("bias")
                 ],
                 "weight_decay": 0.0,
             },
             {
                 "params": [
-                    p
-                    for n, p in self.named_parameters()
-                    if not ("norm" in n or n.endswith("bias"))
+                    p for n, p in self.named_parameters() if not ("norm" in n or n.endswith("bias"))
                 ]
             },
         ]
@@ -566,9 +552,7 @@ class CLIPModel:
         )
         self.model = self.model.eval().requires_grad_(False)
         logging.info(f"loading {checkpoint_path}")
-        self.model.load_state_dict(
-            torch.load(checkpoint_path, map_location="cpu")
-        )
+        self.model.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
 
         # init tokenizer
         self.tokenizer = HuggingfaceTokenizer(

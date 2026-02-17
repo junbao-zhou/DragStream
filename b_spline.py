@@ -24,9 +24,7 @@ def _open_uniform_knots(n, k):
     t[-(k + 1) :] = 1.0
     num_interior = n - k - 1
     if num_interior > 0:
-        t[k + 1 : n] = np.linspace(
-            1 / (n - k), (n - k - 1) / (n - k), num_interior
-        )
+        t[k + 1 : n] = np.linspace(1 / (n - k), (n - k - 1) / (n - k), num_interior)
     return t
 
 
@@ -89,22 +87,14 @@ if __name__ == "__main__":
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
 
-    title_template = (
-        "Left-click: add, Right-click: undo | +/-: change N | c: clear | N = {}"
-    )
+    title_template = "Left-click: add, Right-click: undo | +/-: change N | c: clear | N = {}"
     ax.set_title(title_template.format(sample_count[0]))
 
     # Artists
-    scatter_ctrl = ax.scatter(
-        [], [], c="r", s=25, zorder=3, label="control points"
-    )
-    (ctrl_line,) = ax.plot(
-        [], [], "r--", lw=1, alpha=0.6, zorder=2, label="control polygon"
-    )
+    scatter_ctrl = ax.scatter([], [], c="r", s=25, zorder=3, label="control points")
+    (ctrl_line,) = ax.plot([], [], "r--", lw=1, alpha=0.6, zorder=2, label="control polygon")
     (curve_line,) = ax.plot([], [], "g-", lw=2, zorder=1, label="B-spline")
-    eq_scatter = ax.scatter(
-        [], [], c="b", s=20, zorder=4, label="equally spaced points"
-    )
+    eq_scatter = ax.scatter([], [], c="b", s=20, zorder=4, label="equally spaced points")
 
     ax.legend(loc="upper right")
 
@@ -126,9 +116,7 @@ if __name__ == "__main__":
 
                 # Equally spaced points along the curve
                 N = max(2, sample_count[0])
-                eq_pts = equidistant_points_on_spline(
-                    spl, num_points=N, grid=8000
-                )
+                eq_pts = equidistant_points_on_spline(spl, num_points=N, grid=8000)
                 eq_scatter.set_offsets(eq_pts)
             except Exception as e:
                 print("Error building spline:", e)

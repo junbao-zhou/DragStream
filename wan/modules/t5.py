@@ -39,9 +39,7 @@ def init_weights(m):
         nn.init.normal_(m.v.weight, std=m.dim**-0.5)
         nn.init.normal_(m.o.weight, std=(m.num_heads * m.dim_attn) ** -0.5)
     elif isinstance(m, T5RelativeEmbedding):
-        nn.init.normal_(
-            m.embedding.weight, std=(2 * m.num_buckets * m.num_heads) ** -0.5
-        )
+        nn.init.normal_(m.embedding.weight, std=(2 * m.num_buckets * m.num_heads) ** -0.5)
 
 
 class GELU(nn.Module):
@@ -50,13 +48,7 @@ class GELU(nn.Module):
         return (
             0.5
             * x
-            * (
-                1.0
-                + torch.tanh(
-                    math.sqrt(2.0 / math.pi)
-                    * (x + 0.044715 * torch.pow(x, 3.0))
-                )
-            )
+            * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))))
         )
 
 
@@ -69,9 +61,7 @@ class T5LayerNorm(nn.Module):
         self.weight = nn.Parameter(torch.ones(dim))
 
     def forward(self, x):
-        x = x * torch.rsqrt(
-            x.float().pow(2).mean(dim=-1, keepdim=True) + self.eps
-        )
+        x = x * torch.rsqrt(x.float().pow(2).mean(dim=-1, keepdim=True) + self.eps)
         if self.weight.dtype in [torch.float16, torch.bfloat16]:
             x = x.type_as(self.weight)
         return self.weight * x
@@ -115,9 +105,7 @@ class T5Attention(nn.Module):
             attn_bias += pos_bias
         if mask is not None:
             assert mask.ndim in [2, 3]
-            mask = (
-                mask.view(b, 1, 1, -1) if mask.ndim == 2 else mask.unsqueeze(1)
-            )
+            mask = mask.view(b, 1, 1, -1) if mask.ndim == 2 else mask.unsqueeze(1)
             attn_bias.masked_fill_(mask == 0, torch.finfo(x.dtype).min)
 
         # compute attention (T5 does not use scaling)
@@ -179,17 +167,11 @@ class T5SelfAttention(nn.Module):
         self.norm2 = T5LayerNorm(dim)
         self.ffn = T5FeedForward(dim, dim_ffn, dropout)
         self.pos_embedding = (
-            None
-            if shared_pos
-            else T5RelativeEmbedding(num_buckets, num_heads, bidirectional=True)
+            None if shared_pos else T5RelativeEmbedding(num_buckets, num_heads, bidirectional=True)
         )
 
     def forward(self, x, mask=None, pos_bias=None):
-        e = (
-            pos_bias
-            if self.shared_pos
-            else self.pos_embedding(x.size(1), x.size(1))
-        )
+        e = pos_bias if self.shared_pos else self.pos_embedding(x.size(1), x.size(1))
         x = fp16_clamp(x + self.attn(self.norm1(x), mask=mask, pos_bias=e))
         x = fp16_clamp(x + self.ffn(self.norm2(x)))
         return x
@@ -223,11 +205,7 @@ class T5CrossAttention(nn.Module):
         self.norm3 = T5LayerNorm(dim)
         self.ffn = T5FeedForward(dim, dim_ffn, dropout)
         self.pos_embedding = (
-            None
-            if shared_pos
-            else T5RelativeEmbedding(
-                num_buckets, num_heads, bidirectional=False
-            )
+            None if shared_pos else T5RelativeEmbedding(num_buckets, num_heads, bidirectional=False)
         )
 
     def forward(
@@ -238,17 +216,10 @@ class T5CrossAttention(nn.Module):
         encoder_mask=None,
         pos_bias=None,
     ):
-        e = (
-            pos_bias
-            if self.shared_pos
-            else self.pos_embedding(x.size(1), x.size(1))
-        )
+        e = pos_bias if self.shared_pos else self.pos_embedding(x.size(1), x.size(1))
         x = fp16_clamp(x + self.self_attn(self.norm1(x), mask=mask, pos_bias=e))
         x = fp16_clamp(
-            x
-            + self.cross_attn(
-                self.norm2(x), context=encoder_states, mask=encoder_mask
-            )
+            x + self.cross_attn(self.norm2(x), context=encoder_states, mask=encoder_mask)
         )
         x = fp16_clamp(x + self.ffn(self.norm3(x)))
         return x
@@ -275,9 +246,7 @@ class T5RelativeEmbedding(nn.Module):
         ).unsqueeze(1)
         rel_pos = self._relative_position_bucket(rel_pos)
         rel_pos_embeds = self.embedding(rel_pos)
-        rel_pos_embeds = rel_pos_embeds.permute(2, 0, 1).unsqueeze(
-            0
-        )  # [1, N, Lq, Lk]
+        rel_pos_embeds = rel_pos_embeds.permute(2, 0, 1).unsqueeze(0)  # [1, N, Lq, Lk]
         return rel_pos_embeds.contiguous()
 
     def _relative_position_bucket(self, rel_pos):
@@ -301,9 +270,7 @@ class T5RelativeEmbedding(nn.Module):
                 * (num_buckets - max_exact)
             ).long()
         )
-        rel_pos_large = torch.min(
-            rel_pos_large, torch.full_like(rel_pos_large, num_buckets - 1)
-        )
+        rel_pos_large = torch.min(rel_pos_large, torch.full_like(rel_pos_large, num_buckets - 1))
         rel_buckets += torch.where(rel_pos < max_exact, rel_pos, rel_pos_large)
         return rel_buckets
 
@@ -333,14 +300,10 @@ class T5Encoder(nn.Module):
 
         # layers
         self.token_embedding = (
-            vocab
-            if isinstance(vocab, nn.Embedding)
-            else nn.Embedding(vocab, dim)
+            vocab if isinstance(vocab, nn.Embedding) else nn.Embedding(vocab, dim)
         )
         self.pos_embedding = (
-            T5RelativeEmbedding(num_buckets, num_heads, bidirectional=True)
-            if shared_pos
-            else None
+            T5RelativeEmbedding(num_buckets, num_heads, bidirectional=True) if shared_pos else None
         )
         self.dropout = nn.Dropout(dropout)
         self.blocks = nn.ModuleList(
@@ -365,11 +328,7 @@ class T5Encoder(nn.Module):
     def forward(self, ids, mask=None):
         x = self.token_embedding(ids)
         x = self.dropout(x)
-        e = (
-            self.pos_embedding(x.size(1), x.size(1))
-            if self.shared_pos
-            else None
-        )
+        e = self.pos_embedding(x.size(1), x.size(1)) if self.shared_pos else None
         for block in self.blocks:
             x = block(x, mask, pos_bias=e)
         x = self.norm(x)
@@ -402,14 +361,10 @@ class T5Decoder(nn.Module):
 
         # layers
         self.token_embedding = (
-            vocab
-            if isinstance(vocab, nn.Embedding)
-            else nn.Embedding(vocab, dim)
+            vocab if isinstance(vocab, nn.Embedding) else nn.Embedding(vocab, dim)
         )
         self.pos_embedding = (
-            T5RelativeEmbedding(num_buckets, num_heads, bidirectional=False)
-            if shared_pos
-            else None
+            T5RelativeEmbedding(num_buckets, num_heads, bidirectional=False) if shared_pos else None
         )
         self.dropout = nn.Dropout(dropout)
         self.blocks = nn.ModuleList(
@@ -443,11 +398,7 @@ class T5Decoder(nn.Module):
         # layers
         x = self.token_embedding(ids)
         x = self.dropout(x)
-        e = (
-            self.pos_embedding(x.size(1), x.size(1))
-            if self.shared_pos
-            else None
-        )
+        e = self.pos_embedding(x.size(1), x.size(1)) if self.shared_pos else None
         for block in self.blocks:
             x = block(x, mask, encoder_states, encoder_mask, pos_bias=e)
         x = self.norm(x)
@@ -618,9 +569,7 @@ class T5EncoderModel:
         )
 
     def __call__(self, texts, device):
-        ids, mask = self.tokenizer(
-            texts, return_mask=True, add_special_tokens=True
-        )
+        ids, mask = self.tokenizer(texts, return_mask=True, add_special_tokens=True)
         ids = ids.to(device)
         mask = mask.to(device)
         seq_lens = mask.gt(0).sum(dim=1).long()

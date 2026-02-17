@@ -56,17 +56,11 @@ print(f"{sys.argv = }")
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument(
-    "--config_dir", type=str, help="Directory to the config file"
-)
+parser.add_argument("--config_dir", type=str, help="Directory to the config file")
 parser.add_argument("--config_name", type=str, help="Name to the config file")
-parser.add_argument(
-    "--checkpoint_path", type=str, help="Path to the checkpoint folder"
-)
+parser.add_argument("--checkpoint_path", type=str, help="Path to the checkpoint folder")
 parser.add_argument("--data_path", type=str, help="Path to the dataset")
-parser.add_argument(
-    "--extended_prompt_path", type=str, help="Path to the extended prompt"
-)
+parser.add_argument("--extended_prompt_path", type=str, help="Path to the extended prompt")
 parser.add_argument("--output_folder", type=str, help="Output folder")
 parser.add_argument(
     "--num_output_frames",
@@ -79,9 +73,7 @@ parser.add_argument(
     action="store_true",
     help="Whether to perform I2V (or T2V by default)",
 )
-parser.add_argument(
-    "--use_ema", action="store_true", help="Whether to use EMA parameters"
-)
+parser.add_argument("--use_ema", action="store_true", help="Whether to use EMA parameters")
 parser.add_argument("--seed", type=int, default=0, help="Random seed")
 parser.add_argument(
     "--num_samples",
@@ -142,9 +134,7 @@ pipeline.vae.to(device=gpu)
 
 # Create dataset
 if args.i2v:
-    assert (
-        not dist.is_initialized()
-    ), "I2V does not support distributed inference yet"
+    assert not dist.is_initialized(), "I2V does not support distributed inference yet"
     transform = transforms.Compose(
         [
             transforms.Resize((480, 832)),
@@ -165,9 +155,7 @@ if dist.is_initialized():
     sampler = DistributedSampler(dataset, shuffle=False, drop_last=True)
 else:
     sampler = SequentialSampler(dataset)
-dataloader = DataLoader(
-    dataset, batch_size=1, sampler=sampler, num_workers=0, drop_last=False
-)
+dataloader = DataLoader(dataset, batch_size=1, sampler=sampler, num_workers=0, drop_last=False)
 
 # Create output directory (only on main process to avoid race conditions)
 if local_rank == 0:
@@ -183,10 +171,7 @@ def encode(self, videos: torch.Tensor) -> torch.Tensor:
         self.mean.to(device=device, dtype=dtype),
         1.0 / self.std.to(device=device, dtype=dtype),
     ]
-    output = [
-        self.model.encode(u.unsqueeze(0), scale).float().squeeze(0)
-        for u in videos
-    ]
+    output = [self.model.encode(u.unsqueeze(0), scale).float().squeeze(0) for u in videos]
 
     output = torch.stack(output, dim=0)
     return output
@@ -234,11 +219,7 @@ for i, batch_data in tqdm(enumerate(dataloader), disable=(local_rank != 0)):
     else:
         # For text-to-video, batch is just the text prompt
         prompt = batch["prompts"][0]
-        extended_prompt = (
-            batch["extended_prompts"][0]
-            if "extended_prompts" in batch
-            else None
-        )
+        extended_prompt = batch["extended_prompts"][0] if "extended_prompts" in batch else None
         if extended_prompt is not None:
             prompts = [extended_prompt] * args.num_samples
         else:

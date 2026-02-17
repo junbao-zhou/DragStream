@@ -137,35 +137,22 @@ class FlowMatchScheduler:
         denoising_strength=1.0,
         training=False,
     ):
-        sigma_start = (
-            self.sigma_min
-            + (self.sigma_max - self.sigma_min) * denoising_strength
-        )
+        sigma_start = self.sigma_min + (self.sigma_max - self.sigma_min) * denoising_strength
         if self.extra_one_step:
-            self.sigmas = torch.linspace(
-                sigma_start, self.sigma_min, num_inference_steps + 1
-            )[:-1]
+            self.sigmas = torch.linspace(sigma_start, self.sigma_min, num_inference_steps + 1)[:-1]
         else:
-            self.sigmas = torch.linspace(
-                sigma_start, self.sigma_min, num_inference_steps
-            )
+            self.sigmas = torch.linspace(sigma_start, self.sigma_min, num_inference_steps)
         if self.inverse_timesteps:
             self.sigmas = torch.flip(self.sigmas, dims=[0])
-        self.sigmas = (
-            self.shift * self.sigmas / (1 + (self.shift - 1) * self.sigmas)
-        )
+        self.sigmas = self.shift * self.sigmas / (1 + (self.shift - 1) * self.sigmas)
         if self.reverse_sigmas:
             self.sigmas = 1 - self.sigmas
         self.timesteps = self.sigmas * self.num_train_timesteps
         if training:
             x = self.timesteps
-            y = torch.exp(
-                -2 * ((x - num_inference_steps / 2) / num_inference_steps) ** 2
-            )
+            y = torch.exp(-2 * ((x - num_inference_steps / 2) / num_inference_steps) ** 2)
             y_shifted = y - y.min()
-            bsmntw_weighing = y_shifted * (
-                num_inference_steps / y_shifted.sum()
-            )
+            bsmntw_weighing = y_shifted * (num_inference_steps / y_shifted.sum())
             self.linear_timesteps_weights = bsmntw_weighing
 
     def step(
@@ -235,9 +222,7 @@ class FlowMatchScheduler:
         """
         if timestep.ndim == 2:
             timestep = timestep.flatten(0, 1)
-        self.linear_timesteps_weights = self.linear_timesteps_weights.to(
-            timestep.device
-        )
+        self.linear_timesteps_weights = self.linear_timesteps_weights.to(timestep.device)
         timestep_id = torch.argmin(
             (self.timesteps.unsqueeze(1) - timestep.unsqueeze(0)).abs(), dim=0
         )

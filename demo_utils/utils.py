@@ -61,14 +61,10 @@ def resize_and_center_crop(
 
     pil_image = Image.fromarray(image)
     original_width, original_height = pil_image.size
-    scale_factor = max(
-        target_width / original_width, target_height / original_height
-    )
+    scale_factor = max(target_width / original_width, target_height / original_height)
     resized_width = int(round(original_width * scale_factor))
     resized_height = int(round(original_height * scale_factor))
-    resized_image = pil_image.resize(
-        (resized_width, resized_height), Image.LANCZOS
-    )
+    resized_image = pil_image.resize((resized_width, resized_height), Image.LANCZOS)
     left = (resized_width - target_width) / 2
     top = (resized_height - target_height) / 2
     right = (resized_width + target_width) / 2
@@ -100,9 +96,7 @@ def resize_and_center_crop_pytorch(
 
     top = (resized_height - target_height) // 2
     left = (resized_width - target_width) // 2
-    cropped = resized[
-        :, :, top : top + target_height, left : left + target_width
-    ]
+    cropped = resized[:, :, top : top + target_height, left : left + target_width]
 
     return cropped
 
@@ -116,9 +110,7 @@ def resize_without_crop(
         return image
 
     pil_image = Image.fromarray(image)
-    resized_image = pil_image.resize(
-        (target_width, target_height), Image.LANCZOS
-    )
+    resized_image = pil_image.resize((target_width, target_height), Image.LANCZOS)
     return np.array(resized_image)
 
 
@@ -136,9 +128,7 @@ def just_crop(
     new_height = int(round(h * k))
     x_start = (original_width - new_width) // 2
     y_start = (original_height - new_height) // 2
-    cropped_image = image[
-        y_start : y_start + new_height, x_start : x_start + new_width
-    ]
+    cropped_image = image[y_start : y_start + new_height, x_start : x_start + new_width]
     return cropped_image
 
 
@@ -306,9 +296,7 @@ def generate_random_prompt_from_tags(
     max_length=32,
 ):
     tags = tags_str.split(", ")
-    tags = random.sample(
-        tags, k=min(random.randint(min_length, max_length), len(tags))
-    )
+    tags = random.sample(tags, k=min(random.randint(min_length, max_length), len(tags)))
     prompt = ", ".join(tags)
     return prompt
 
@@ -355,16 +343,11 @@ def soft_append_bcthw(
         current.shape[2] >= overlap
     ), f"Current length ({current.shape[2]}) must be >= overlap ({overlap})"
 
-    weights = torch.linspace(
-        1, 0, overlap, dtype=history.dtype, device=history.device
-    ).view(1, 1, -1, 1, 1)
-    blended = (
-        weights * history[:, :, -overlap:]
-        + (1 - weights) * current[:, :, :overlap]
+    weights = torch.linspace(1, 0, overlap, dtype=history.dtype, device=history.device).view(
+        1, 1, -1, 1, 1
     )
-    output = torch.cat(
-        [history[:, :, :-overlap], blended, current[:, :, overlap:]], dim=2
-    )
+    blended = weights * history[:, :, -overlap:] + (1 - weights) * current[:, :, :overlap]
+    output = torch.cat([history[:, :, :-overlap], blended, current[:, :, overlap:]], dim=2)
 
     return output.to(history)
 
@@ -666,9 +649,7 @@ def crop_or_pad_yield_mask(
         mask[:, :F] = True
         return y, mask
 
-    return x[:, :length, :], torch.ones(
-        (B, length), dtype=torch.bool, device=device
-    )
+    return x[:, :length, :], torch.ones((B, length), dtype=torch.bool, device=device)
 
 
 def extend_dim(
@@ -687,15 +668,9 @@ def extend_dim(
         padding_shape[dim] = minimal_length - original_length
         padding = torch.zeros(padding_shape, dtype=x.dtype, device=x.device)
     else:
-        idx = (
-            (slice(None),) * dim
-            + (slice(-1, None),)
-            + (slice(None),) * (len(x.shape) - dim - 1)
-        )
+        idx = (slice(None),) * dim + (slice(-1, None),) + (slice(None),) * (len(x.shape) - dim - 1)
         last_element = x[idx]
-        padding = last_element.repeat_interleave(
-            minimal_length - original_length, dim=dim
-        )
+        padding = last_element.repeat_interleave(minimal_length - original_length, dim=dim)
 
     return torch.cat([x, padding], dim=dim)
 
@@ -752,9 +727,7 @@ def state_dict_weighted_merge(
     weights,
 ):
     if len(state_dicts) != len(weights):
-        raise ValueError(
-            "Number of state dictionaries must match number of weights"
-        )
+        raise ValueError("Number of state dictionaries must match number of weights")
 
     if not state_dicts:
         return {}

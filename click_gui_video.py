@@ -25,7 +25,7 @@ from pathlib import Path
 import cv2
 
 # from sam_segment import predict_masks_with_sam
-from segment_anything.segment_anything import SamPredictor, sam_model_registry
+from segment_anything import SamPredictor, sam_model_registry
 
 from tensor_utils import (
     image_to_pil,
@@ -88,7 +88,10 @@ def apply_movable_mask_to_image(
     image: np.ndarray | Image.Image,
 ):
     return apply_mask_to_image(
-        mask=mask, image=image, mask_color=(255, 255, 255), alpha=0.35
+        mask=mask,
+        image=image,
+        mask_color=(255, 255, 255),
+        alpha=0.35,
     )
 
 
@@ -97,7 +100,10 @@ def apply_target_mask_to_image(
     image: np.ndarray | Image.Image,
 ):
     return apply_mask_to_image(
-        mask=mask, image=image, mask_color=(255, 64, 64), alpha=0.5
+        mask=mask,
+        image=image,
+        mask_color=(255, 64, 64),
+        alpha=0.5,
     )
 
 
@@ -118,9 +124,7 @@ def begin_generate(
             end_block_index=end_block_index,
             prompt=prompt,
         )
-    save_dir = (
-        Path(output_dir) / f"{prompt_index:04d}-{prompt[:50].replace(' ', '_')}"
-    )
+    save_dir = Path(output_dir) / f"{prompt_index:04d}-{prompt[:50].replace(' ', '_')}"
     save_dir.mkdir(parents=True, exist_ok=True)
 
     save_prefix = f"block_{start_block_index}_{end_block_index}"
@@ -219,11 +223,7 @@ def sam_predict_segmentation(
     masks, scores, logits = sam_predictor.predict(
         point_coords=np.array(click_points),
         point_labels=np.ones((len(click_points),)),
-        mask_input=(
-            previous_sam_logits[0:1]
-            if previous_sam_logits is not None
-            else None
-        ),
+        mask_input=(previous_sam_logits[0:1] if previous_sam_logits is not None else None),
         multimask_output=True,
     )
     # mask: np.ndarray
@@ -261,21 +261,15 @@ def sam_predict_segmentation_wrapper(
             (original_image.height, original_image.width), dtype=np.int32
         )
     else:
-        labeled_restriction_mask, _ = ndimage.label(
-            restriction_mask, structure=np.ones((3, 3))
-        )
+        labeled_restriction_mask, _ = ndimage.label(restriction_mask, structure=np.ones((3, 3)))
     # print(f"{labeled_restriction_mask = }")
     current_click_label = labeled_restriction_mask[evt.index[1], evt.index[0]]
     # print(f"{current_click_label = }")
 
     if current_click_label == 0:
-        selected_component_mask = np.zeros_like(
-            labeled_restriction_mask, dtype=bool
-        )
+        selected_component_mask = np.zeros_like(labeled_restriction_mask, dtype=bool)
     else:
-        selected_component_mask = (
-            labeled_restriction_mask == current_click_label
-        )
+        selected_component_mask = labeled_restriction_mask == current_click_label
     # print(f"{selected_component_mask = }")
 
     if bypass_sam_model:
@@ -341,9 +335,7 @@ def save_sam_masks(
     current_mask: np.ndarray | None,
     previous_masks: list[np.ndarray],
 ):
-    new_masks = previous_masks + (
-        [current_mask] if current_mask is not None else []
-    )
+    new_masks = previous_masks + ([current_mask] if current_mask is not None else [])
     return None, new_masks, [], None
 
 
@@ -514,9 +506,7 @@ draw_trajectory_image:
         and (mask_index < len(masks_list))
         and is_draw_bbox
     ):
-        image = draw_bbox_on_image(
-            image, bbox_from_mask(masks_list[mask_index])
-        )
+        image = draw_bbox_on_image(image, bbox_from_mask(masks_list[mask_index]))
     image = draw_all_trajectories(
         image,
         trajectory,
@@ -574,9 +564,7 @@ def update_trajectory(
             # No restriction on control points, sample N = 1 + 3 * block_number
             num_traj_points = 1 + 3 * int(trajectory.block_number)
         else:
-            raise ValueError(
-                f"Invalid drag_animation_select: {drag_animation_select}"
-            )
+            raise ValueError(f"Invalid drag_animation_select: {drag_animation_select}")
 
         current_trajectory["control_points"] = control_points
 
@@ -585,9 +573,7 @@ def update_trajectory(
             sampled_pts = [control_points[0]] * num_traj_points
         else:
             spline = build_clamped_bspline(control_points, degree=3)
-            pts = equidistant_points_on_spline(
-                spline, num_points=num_traj_points, grid=8000
-            )
+            pts = equidistant_points_on_spline(spline, num_points=num_traj_points, grid=8000)
             sampled_pts = [(int(round(px)), int(round(py))) for px, py in pts]
 
         current_trajectory["points"] = sampled_pts
@@ -596,10 +582,7 @@ def update_trajectory(
         current_trajectory["is_rotation"] = True
 
         # Initialize if missing, else apply 3-point logic
-        if (
-            "points" not in current_trajectory
-            or current_trajectory["points"] is None
-        ):
+        if "points" not in current_trajectory or current_trajectory["points"] is None:
             current_trajectory["points"] = [clicked_point]
         else:
             pts = current_trajectory["points"] + [clicked_point]
@@ -613,9 +596,7 @@ def update_trajectory(
             else:
                 # len(pts) == 3: pts[0] is rotation center
                 if drag_animation_select == "Animation":
-                    first = trajectory_interpolate(
-                        pts[1:], scale=int(trajectory.block_number)
-                    )
+                    first = trajectory_interpolate(pts[1:], scale=int(trajectory.block_number))
                     second = trajectory_interpolate(first, scale=3)
                     current_trajectory["points"] = pts[0:1] + second
                 else:
@@ -739,12 +720,12 @@ begin_optimize
         )
         end_block_index = start_block_index
 
-    save_dir = (
-        Path(output_dir) / f"{prompt_index:04d}-{prompt[:50].replace(' ', '_')}"
-    )
+    save_dir = Path(output_dir) / f"{prompt_index:04d}-{prompt[:50].replace(' ', '_')}"
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    save_prefix = f"block_{start_block_index}_{multi_trajectory.drag_or_animation_select}_{end_block_index}"
+    save_prefix = (
+        f"block_{start_block_index}_{multi_trajectory.drag_or_animation_select}_{end_block_index}"
+    )
     save_video_path = str(save_dir / f"{save_prefix}.mp4")
     write_video(
         save_video_path,
@@ -819,9 +800,7 @@ def clear_all_trajectories(
     return trajectory
 
 
-def sync_trajectory_masks(
-    saved_trajectory: MultiTrajectory, dilated_masks: list[np.ndarray]
-):
+def sync_trajectory_masks(saved_trajectory: MultiTrajectory, dilated_masks: list[np.ndarray]):
     """Resize saved_trajectory.trajectories to match the number of dilated masks,
     and update each Trajectory.mask with the corresponding dilated mask."""
     saved_trajectory = copy.deepcopy(saved_trajectory)
@@ -835,9 +814,7 @@ def sync_trajectory_masks(
             saved_trajectory.trajectories.append(Trajectory())
     elif target_len < current_len:
         # Shrink: truncate
-        saved_trajectory.trajectories = saved_trajectory.trajectories[
-            :target_len
-        ]
+        saved_trajectory.trajectories = saved_trajectory.trajectories[:target_len]
 
     # Update each Trajectory.mask
     for i, mask in enumerate(dilated_masks):
@@ -868,9 +845,7 @@ def add_listeners_to_trajectory(
     )
 
     # Sync block_number into saved_trajectory when trajectory_block_number_slider changes
-    def sync_trajectory_block_number(
-        saved_trajectory: MultiTrajectory, block_number: int
-    ):
+    def sync_trajectory_block_number(saved_trajectory: MultiTrajectory, block_number: int):
         saved_trajectory.block_number = block_number
         return saved_trajectory
 
@@ -896,9 +871,7 @@ def add_listeners_to_trajectory(
     )
 
     # Sync movable_area_mask into saved_trajectory when it changes
-    def sync_trajectory_movable_mask(
-        saved_trajectory: MultiTrajectory, movable_mask
-    ):
+    def sync_trajectory_movable_mask(saved_trajectory: MultiTrajectory, movable_mask):
         saved_trajectory.movable_mask = movable_mask
         return saved_trajectory
 
@@ -943,9 +916,7 @@ def create_generate_video_ui(
             scale=1,
         )
     prompt_index_number.change(
-        fn=lambda prompt_index_number: text_dataset[prompt_index_number][
-            "prompts"
-        ],
+        fn=lambda prompt_index_number: text_dataset[prompt_index_number]["prompts"],
         inputs=prompt_index_number,
         outputs=[
             prompt_box,
@@ -956,8 +927,7 @@ def create_generate_video_ui(
             prompt_box.change,
         ],
         fn=lambda prompt_index_number, prompt: str(
-            label_root
-            / f"{prompt_index_number:04d}-{prompt[:50].replace(' ', '_')}"
+            label_root / f"{prompt_index_number:04d}-{prompt[:50].replace(' ', '_')}"
         ),
         inputs=[prompt_index_number, prompt_box],
         outputs=save_dir_text_box,
@@ -1263,6 +1233,26 @@ def create_sam_mask_management_ui(
     sam_saved_logits: gr.State,
 ):
     with gr.Row():
+        save_sam_masks_button = gr.Button(
+            value="Step 7: Save the Current SAM Mask",
+        )
+        cancel_sam_mask_button = gr.Button(value="Cancel Current SAM Mask")
+        delete_sam_mask_button = gr.Button(value="Delete All SAM Masks")
+    save_sam_masks_button.click(
+        fn=save_sam_masks,
+        inputs=[
+            current_sam_predicted_mask,
+            saved_sam_predicted_masks,
+        ],
+        outputs=[
+            current_sam_predicted_mask,
+            saved_sam_predicted_masks,
+            sam_click_points,
+            sam_saved_logits,
+        ],
+        trigger_mode="always_last",
+    )
+    with gr.Row():
         sam_segment_display_image = gr.Image(
             label="Step 8: Display the SAM Segmentation, Click to Select Target Object to Create Trajectory",
             type="pil",
@@ -1285,27 +1275,6 @@ def create_sam_mask_management_ui(
             sam_click_points,
         ],
         outputs=sam_segment_display_image,
-        trigger_mode="always_last",
-    )
-
-    with gr.Row():
-        save_sam_masks_button = gr.Button(
-            value="Step 7: Save the Current SAM Mask",
-        )
-        cancel_sam_mask_button = gr.Button(value="Cancel Current SAM Mask")
-        delete_sam_mask_button = gr.Button(value="Delete All SAM Masks")
-    save_sam_masks_button.click(
-        fn=save_sam_masks,
-        inputs=[
-            current_sam_predicted_mask,
-            saved_sam_predicted_masks,
-        ],
-        outputs=[
-            current_sam_predicted_mask,
-            saved_sam_predicted_masks,
-            sam_click_points,
-            sam_saved_logits,
-        ],
         trigger_mode="always_last",
     )
     cancel_sam_mask_button.click(
@@ -1369,11 +1338,11 @@ def create_trajectory_display_ui(
     with gr.Row():
         drag_animation_select = gr.Dropdown(
             choices=["Drag", "Animation"],
-            label="Step 10: Select Drag or Animation ?",
+            label="Step 10: Select Drag or Animation",
         )
         translate_rotate_select = gr.Dropdown(
             choices=["Translation", "Rotation"],
-            label="Step 11: Select Translation or Rotation ?",
+            label="Step 11: Select Translation or Rotation",
         )
 
     with gr.Row():
@@ -1428,12 +1397,8 @@ def create_trajectory_management_ui(
         save_trajectory_button = gr.Button(
             value="Step 13: Save Trajectory",
         )
-        delete_current_trajectory_button = gr.Button(
-            value="Delete Current Trajectory"
-        )
-        delete_all_trajectory_button = gr.Button(
-            value="Delete All Trajectories"
-        )
+        delete_current_trajectory_button = gr.Button(value="Delete Current Trajectory")
+        delete_all_trajectory_button = gr.Button(value="Delete All Trajectories")
     save_trajectory_button.click(
         fn=save_trajectory,
         inputs=[
@@ -1495,9 +1460,7 @@ def create_ui(
         )
 
         create_movable_area_ui(movable_area_mask, original_image)
-        create_target_area_ui(
-            target_area_mask, original_image, movable_area_mask
-        )
+        create_target_area_ui(target_area_mask, original_image, movable_area_mask)
         create_sam_segmentation_ui(
             original_image=original_image,
             movable_area_mask=movable_area_mask,
@@ -1522,14 +1485,12 @@ def create_ui(
             sam_saved_logits=sam_saved_logits,
         )
 
-        drag_animation_select, trajectory_block_number_slider = (
-            create_trajectory_display_ui(
-                original_image=original_image,
-                movable_area_mask=movable_area_mask,
-                dilated_saved_sam_predicted_masks=dilated_saved_sam_predicted_masks,
-                saved_trajectory=saved_trajectory,
-                current_selected_mask_index_number=current_selected_mask_index_number,
-            )
+        drag_animation_select, trajectory_block_number_slider = create_trajectory_display_ui(
+            original_image=original_image,
+            movable_area_mask=movable_area_mask,
+            dilated_saved_sam_predicted_masks=dilated_saved_sam_predicted_masks,
+            saved_trajectory=saved_trajectory,
+            current_selected_mask_index_number=current_selected_mask_index_number,
         )
         create_trajectory_management_ui(
             save_dir_text_box=save_dir_text_box,
@@ -1551,7 +1512,7 @@ def create_ui(
 
         with gr.Row():
             begin_optimize_button = gr.Button(
-                value="Step 14: Click Here to Begin Optimize",
+                value="Step 14: Click Here to Begin Optimize, Wait for a Moment and the Dragged/Animated Video will be Displayed Above",
             )
         begin_optimize_button.click(
             fn=lambda pi, sbi, st: begin_optimize(
@@ -1612,17 +1573,13 @@ def create_ui(
 
 
 def main():
-    sam_model = sam_model_registry["vit_h"](
-        checkpoint="../segment-anything/sam_vit_h_4b8939.pth"
-    )
+    sam_model = sam_model_registry["vit_h"](checkpoint="../segment-anything/sam_vit_h_4b8939.pth")
     sam_model.to(device="cuda")
     sam_predictor = SamPredictor(sam_model)
 
     SEED = 42
 
-    text_dataset = TextDataset(
-        prompt_path="prompts/MovieGenVideoBench_extended.txt"
-    )
+    text_dataset = TextDataset(prompt_path="prompts/MovieGenVideoBench_extended.txt")
 
     if GlobalHydra.instance().is_initialized():
         GlobalHydra.instance().clear()

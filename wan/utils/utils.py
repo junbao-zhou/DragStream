@@ -31,11 +31,7 @@ def cache_video(
     retry=5,
 ):
     # cache file
-    cache_file = (
-        osp.join("/tmp", rand_name(suffix=suffix))
-        if save_file is None
-        else save_file
-    )
+    cache_file = osp.join("/tmp", rand_name(suffix=suffix)) if save_file is None else save_file
 
     # save to cache
     error = None
@@ -58,9 +54,7 @@ def cache_video(
             tensor = (tensor * 255).type(torch.uint8).cpu()
 
             # write video
-            writer = imageio.get_writer(
-                cache_file, fps=fps, codec="libx264", quality=8
-            )
+            writer = imageio.get_writer(cache_file, fps=fps, codec="libx264", quality=8)
             for frame in tensor.numpy():
                 writer.append_data(frame)
             writer.close()
@@ -73,9 +67,7 @@ def cache_video(
         return None
 
 
-def cache_image(
-    tensor, save_file, nrow=8, normalize=True, value_range=(-1, 1), retry=5
-):
+def cache_image(tensor, save_file, nrow=8, normalize=True, value_range=(-1, 1), retry=5):
     # cache file
     suffix = osp.splitext(save_file)[1]
     if suffix.lower() not in [

@@ -113,10 +113,7 @@ class XLMRoberta(nn.Module):
 
         # blocks
         self.blocks = nn.ModuleList(
-            [
-                AttentionBlock(dim, num_heads, post_norm, dropout, eps)
-                for _ in range(num_layers)
-            ]
+            [AttentionBlock(dim, num_heads, post_norm, dropout, eps) for _ in range(num_layers)]
         )
 
         # norm layer
@@ -140,9 +137,7 @@ class XLMRoberta(nn.Module):
         x = self.dropout(x)
 
         # blocks
-        mask = torch.where(
-            mask.view(b, 1, 1, s).gt(0), 0.0, torch.finfo(x.dtype).min
-        )
+        mask = torch.where(mask.view(b, 1, 1, s).gt(0), 0.0, torch.finfo(x.dtype).min)
         for block in self.blocks:
             x = block(x, mask)
 
@@ -152,9 +147,7 @@ class XLMRoberta(nn.Module):
         return x
 
 
-def xlm_roberta_large(
-    pretrained=False, return_tokenizer=False, device="cpu", **kwargs
-):
+def xlm_roberta_large(pretrained=False, return_tokenizer=False, device="cpu", **kwargs):
     """
     XLMRobertaLarge adapted from Huggingface.
     """

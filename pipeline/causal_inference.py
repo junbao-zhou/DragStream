@@ -82,9 +82,7 @@ def split_trajectories_segments(
     # Phase 1: Convert raw deltas to torch tensors (ensure uniform type)
     # -------------------------------------------------------------------------
     for trajectory in trajectories:
-        trajectory["deltas"] = [
-            torch.tensor(delta, device="cpu") for delta in trajectory["deltas"]
-        ]
+        trajectory["deltas"] = [torch.tensor(delta, device="cpu") for delta in trajectory["deltas"]]
 
     # -------------------------------------------------------------------------
     # Phase 2: Determine the maximum number of segments across all trajectories.
@@ -117,9 +115,7 @@ def split_trajectories_segments(
     for trajectory in trajectories:
         print(f"{trajectory['is_rotation'] = }")
         # Divide each frame's delta by the total number of segments
-        trajectory_steps = [
-            delta / float(max_segment_number) for delta in trajectory["deltas"]
-        ]
+        trajectory_steps = [delta / float(max_segment_number) for delta in trajectory["deltas"]]
         print(f"{trajectory_steps = }")
         # Build the per-trajectory step metadata
         split_trajectory_step = {
@@ -128,9 +124,7 @@ def split_trajectories_segments(
             "start_point": trajectory["start_point"],
         }
         if trajectory["is_rotation"]:
-            split_trajectory_step["rotation_center"] = trajectory[
-                "rotation_center"
-            ]
+            split_trajectory_step["rotation_center"] = trajectory["rotation_center"]
         split_trajectory_steps.append(split_trajectory_step)
 
     # -------------------------------------------------------------------------
@@ -147,15 +141,11 @@ def split_trajectories_segments(
         for trajectory_step in split_trajectory_steps:
             new_trajectory = {
                 "is_rotation": trajectory_step["is_rotation"],
-                "deltas": [
-                    step * segment_index for step in trajectory_step["steps"]
-                ],
+                "deltas": [step * segment_index for step in trajectory_step["steps"]],
                 "start_point": trajectory_step["start_point"],
             }
             if trajectory_step["is_rotation"]:
-                new_trajectory["rotation_center"] = trajectory_step[
-                    "rotation_center"
-                ]
+                new_trajectory["rotation_center"] = trajectory_step["rotation_center"]
             new_trajectories.append(new_trajectory)
         print(f"{new_trajectories = }")
         new_trajectories_list.append(new_trajectories)
@@ -184,16 +174,12 @@ class CausalInferencePipeline(torch.nn.Module):
             if generator is None
             else generator
         )
-        self.text_encoder = (
-            WanTextEncoder() if text_encoder is None else text_encoder
-        )
+        self.text_encoder = WanTextEncoder() if text_encoder is None else text_encoder
         self.vae = WanVAEWrapper() if vae is None else vae
 
         # Step 2: Initialize all causal hyperparmeters
         self.scheduler = self.generator.get_scheduler()
-        self.denoising_step_list = torch.tensor(
-            args.denoising_step_list, dtype=torch.long
-        )
+        self.denoising_step_list = torch.tensor(args.denoising_step_list, dtype=torch.long)
         if args.warp_denoising_step:
             timesteps = torch.cat(
                 (
@@ -201,9 +187,7 @@ class CausalInferencePipeline(torch.nn.Module):
                     torch.tensor([0], dtype=torch.float32),
                 )
             )
-            self.denoising_step_list = timesteps[
-                1000 - self.denoising_step_list
-            ]
+            self.denoising_step_list = timesteps[1000 - self.denoising_step_list]
 
         self.num_transformer_blocks = 30
         self.frame_seq_length = 1560
@@ -236,8 +220,7 @@ class CausalInferencePipeline(torch.nn.Module):
             where `L = len(record_features)`.
         """
         attention_values = {
-            k: v.permute(0, 4, 1, 2, 3).contiguous()
-            for k, v in record_features.items()
+            k: v.permute(0, 4, 1, 2, 3).contiguous() for k, v in record_features.items()
         }
         # [ [1, 1536, 3, 30, 52] ]
 
@@ -282,12 +265,8 @@ class CausalInferencePipeline(torch.nn.Module):
             {
                 "k": kv_cache[block_index]["k"].clone().detach(),
                 "v": kv_cache[block_index]["v"].clone().detach(),
-                "global_end_index": kv_cache[block_index]["global_end_index"]
-                .clone()
-                .detach(),
-                "local_end_index": kv_cache[block_index]["local_end_index"]
-                .clone()
-                .detach(),
+                "global_end_index": kv_cache[block_index]["global_end_index"].clone().detach(),
+                "local_end_index": kv_cache[block_index]["local_end_index"].clone().detach(),
             }
             for block_index in range(self.num_transformer_blocks)
         ]
@@ -310,9 +289,7 @@ class CausalInferencePipeline(torch.nn.Module):
 
         record_features = transpose_dict_2d(record_features)
         # record_features: Dict[key] -> Dict[block_index -> Tensor] [1, 3, 30, 52, 1536]
-        record_features = {
-            k: self.stack_features(v) for k, v in record_features.items()
-        }
+        record_features = {k: self.stack_features(v) for k, v in record_features.items()}
         # record_features: Dict[key] -> Tensor [1536 * L, 3, 30, 52]
         return denoised_pred, record_features
 
@@ -375,14 +352,10 @@ class CausalInferencePipeline(torch.nn.Module):
 
             # 4) Combined downsampled movable mask (OR of all warped + original)
             all_down_warp_masks = [
-                dwm
-                for traj_down_masks in down_warp_masks
-                for dwm in traj_down_masks
+                dwm for traj_down_masks in down_warp_masks for dwm in traj_down_masks
             ]
             all_down_warp_masks.append(downsample_movable_mask.clone())
-            combined_downsample_movable_mask = combine_masks_or(
-                all_down_warp_masks
-            )
+            combined_downsample_movable_mask = combine_masks_or(all_down_warp_masks)
 
             # 5) Precompute warped attention values per variant
             warped_for_prev: dict[str | int, List[List[torch.Tensor]]] = {
@@ -432,9 +405,7 @@ class CausalInferencePipeline(torch.nn.Module):
                 size=latent_spatial_size,
                 mode="bilinear",
             ).detach()  # [F, H_lat, W_lat]
-            combined_gaussian_heatmaps = combined_gaussian_heatmaps.to(
-                dtype=dtype
-            )
+            combined_gaussian_heatmaps = combined_gaussian_heatmaps.to(dtype=dtype)
         return (
             warped_masks,
             down_warp_masks,
@@ -476,9 +447,7 @@ class CausalInferencePipeline(torch.nn.Module):
         """
         assert isinstance(model_config.drag_optim_config.optimize_iter, int)
         assert isinstance(model_config.drag_optim_config.optimize_lr, float)
-        assert (
-            len(model_config.drag_optim_config.record_feature_block_indexes) > 0
-        )
+        assert len(model_config.drag_optim_config.record_feature_block_indexes) > 0
         assert len(trajectories) == len(masks)
         if len(trajectories) == 0:
             return latents
@@ -562,9 +531,7 @@ class CausalInferencePipeline(torch.nn.Module):
         )
         # previous_record_features: dict[key] -> Tensor [1536 * L, 30 * scaling, 52 * scaling]
 
-        movable_mask_torch = torch.tensor(
-            movable_mask, device=latents.device
-        ).float()
+        movable_mask_torch = torch.tensor(movable_mask, device=latents.device).float()
         downsample_movable_mask = resize_tensor(
             movable_mask_torch.detach(),
             size=tuple(original_denoised_pred.shape[-2:]),
@@ -580,9 +547,7 @@ class CausalInferencePipeline(torch.nn.Module):
                 lr=model_config.drag_optim_config.optimize_lr,
             )
 
-            for split_traj_idx, split_trajectories in enumerate(
-                split_trajectories_list
-            ):
+            for split_traj_idx, split_trajectories in enumerate(split_trajectories_list):
                 # split_trajectories: N x trajectory, list[trajectory_index] -> trajectory dict
                 (
                     warped_masks,
@@ -604,9 +569,7 @@ class CausalInferencePipeline(torch.nn.Module):
                 # -------------------------
                 # Optimization iterations (reuse precomputed items)
                 # -------------------------
-                for optimize_iter_idx in range(
-                    model_config.drag_optim_config.optimize_iter
-                ):
+                for optimize_iter_idx in range(model_config.drag_optim_config.optimize_iter):
                     print(f"{optimize_iter_idx = }")
                     print(f"{latents.mean((0, 2, 3, 4)) = }")
                     print(f"{latents.std((0, 2, 3, 4)) = }")
@@ -634,8 +597,7 @@ class CausalInferencePipeline(torch.nn.Module):
                     if optimize_target_latent_index >= 0:
                         record_features_selected = record_features_selected[
                             :,
-                            optimize_target_latent_index : optimize_target_latent_index
-                            + 1,
+                            optimize_target_latent_index : optimize_target_latent_index + 1,
                         ]
 
                     record_features_selected = resize_tensor(
@@ -656,40 +618,25 @@ class CausalInferencePipeline(torch.nn.Module):
                     loss_cnt = 0
 
                     # Iterate over each trajectory point
-                    for trajectory_index, trajectory in enumerate(
-                        split_trajectories
-                    ):
-                        assert record_features_selected.shape[1] == len(
-                            trajectory["deltas"]
-                        )
+                    for trajectory_index, trajectory in enumerate(split_trajectories):
+                        assert record_features_selected.shape[1] == len(trajectory["deltas"])
 
                         for frame_index in range(len(trajectory["deltas"])):
-                            warped_attention_values = (
-                                warped_previous_feature_selected[
-                                    trajectory_index
-                                ][frame_index]
-                            )
-
-                            downsample_warped_mask = down_warp_masks[
+                            warped_attention_values = warped_previous_feature_selected[
                                 trajectory_index
                             ][frame_index]
 
+                            downsample_warped_mask = down_warp_masks[trajectory_index][frame_index]
+
                             pixel_wise_loss = F.mse_loss(
-                                warped_attention_values
-                                * downsample_warped_mask,
-                                record_features_selected[:, frame_index]
-                                * downsample_warped_mask,
+                                warped_attention_values * downsample_warped_mask,
+                                record_features_selected[:, frame_index] * downsample_warped_mask,
                                 reduction="none",
                             ).mean(dim=0)
                             # print(f"{pixel_wise_loss.shape = }")  # [60, 104]
 
                             # Add weighted loss
-                            loss = (
-                                loss
-                                + (
-                                    downsample_warped_mask * pixel_wise_loss
-                                ).sum()
-                            )
+                            loss = loss + (downsample_warped_mask * pixel_wise_loss).sum()
                             loss_cnt += downsample_warped_mask.sum()
 
                     print(f"{loss = }  /  {loss_cnt = }")
@@ -699,8 +646,7 @@ class CausalInferencePipeline(torch.nn.Module):
                     unchanged_mask = 1.0 - combined_downsample_movable_mask
                     unchanged_loss = F.mse_loss(
                         denoised_pred * unchanged_mask.detach(),
-                        original_denoised_pred.detach()
-                        * unchanged_mask.detach(),
+                        original_denoised_pred.detach() * unchanged_mask.detach(),
                     )
                     print(f"{unchanged_loss = }")
                     loss = loss + unchanged_loss * 1.0
@@ -712,16 +658,10 @@ class CausalInferencePipeline(torch.nn.Module):
                         loss.backward()
                         assert (
                             combined_gaussian_heatmaps.shape[0] == 1
-                            or combined_gaussian_heatmaps.shape[0]
-                            == latents.shape[-4]
+                            or combined_gaussian_heatmaps.shape[0] == latents.shape[-4]
                         )
-                        assert (
-                            combined_gaussian_heatmaps.shape[-2:]
-                            == latents.shape[-2:]
-                        )
-                        latents.grad.mul_(
-                            combined_gaussian_heatmaps[:, None, :, :]
-                        )
+                        assert combined_gaussian_heatmaps.shape[-2:] == latents.shape[-2:]
+                        latents.grad.mul_(combined_gaussian_heatmaps[:, None, :, :])
                         # Clip gradients
                         clip_grad_norm_(
                             [latents],
@@ -729,17 +669,13 @@ class CausalInferencePipeline(torch.nn.Module):
                             norm_type=2,
                         )
                         optimizer.step()
-                    if (
-                        model_config.drag_optim_config.normalize_latent_after_drag_optimize
-                    ):
+                    if model_config.drag_optim_config.normalize_latent_after_drag_optimize:
                         print(f"Normalizing latents after optimize iteration")
                         latents = (
                             normalize_tensor_to_match_tensor(
                                 latents.detach().clone(),
                                 dim=(0, 3, 4),
-                                reference_tensor=original_latents.to(
-                                    dtype=latents.dtype
-                                ),
+                                reference_tensor=original_latents.to(dtype=latents.dtype),
                             )
                             .detach()
                             .clone()
@@ -792,14 +728,10 @@ class CausalInferencePipeline(torch.nn.Module):
         do_not_recompute_initial_latents: bool = False,
         # below are for drag optimization
         model_config: DictConfig = None,
-        previous_record_feature_list: dict[
-            int, dict[int, dict[str, torch.Tensor]]
-        ] = None,
+        previous_record_feature_list: dict[int, dict[int, dict[str, torch.Tensor]]] = None,
         # dict[denoising_step] -> dict[block_index] -> dict[key -> Tensor] [1, 3, 30, 52, 1536]
         is_drag_optimize: bool = False,
-        block_trajectories: list[
-            list[dict[str, bool | list[torch.Tensor]]]
-        ] = [],
+        block_trajectories: list[list[dict[str, bool | list[torch.Tensor]]]] = [],
         masks: list[np.ndarray] = [],
         movable_mask: np.ndarray = None,
         drag_optimize_target_latent_index: int = -1,
@@ -838,12 +770,8 @@ class CausalInferencePipeline(torch.nn.Module):
             # Using a [1, 4, 4, 4, 4, 4, ...] model to generate a video without image conditioning
             assert (num_frames - 1) % self.num_frame_per_block == 0
             num_blocks = (num_frames - 1) // self.num_frame_per_block
-        num_input_frames = (
-            initial_latent.shape[1] if initial_latent is not None else 0
-        )
-        num_output_frames = (
-            num_frames + num_input_frames
-        )  # add the initial latent frames
+        num_input_frames = initial_latent.shape[1] if initial_latent is not None else 0
+        num_output_frames = num_frames + num_input_frames  # add the initial latent frames
         conditional_dict = self.text_encoder(text_prompts=text_prompts)
 
         if low_memory:
@@ -875,9 +803,7 @@ class CausalInferencePipeline(torch.nn.Module):
 
         # Step 1: Initialize KV cache to all zeros
         if self.kv_cache1 is None:
-            self._initialize_kv_cache(
-                batch_size=batch_size, dtype=noise.dtype, device=noise.device
-            )
+            self._initialize_kv_cache(batch_size=batch_size, dtype=noise.dtype, device=noise.device)
             self._initialize_crossattn_cache(
                 batch_size=batch_size, dtype=noise.dtype, device=noise.device
             )
@@ -892,18 +818,11 @@ class CausalInferencePipeline(torch.nn.Module):
         # Step 2: Cache context feature
         current_start_frame = 0
         if initial_latent is not None:
-            timestep = (
-                torch.ones(
-                    [batch_size, 1], device=noise.device, dtype=torch.int64
-                )
-                * 0
-            )
+            timestep = torch.ones([batch_size, 1], device=noise.device, dtype=torch.int64) * 0
             if self.independent_first_frame:
                 # Assume num_input_frames is 1 + self.num_frame_per_block * num_input_blocks
                 assert (num_input_frames - 1) % self.num_frame_per_block == 0
-                num_input_blocks = (
-                    num_input_frames - 1
-                ) // self.num_frame_per_block
+                num_input_blocks = (num_input_frames - 1) // self.num_frame_per_block
                 output[:, :1] = initial_latent[:, :1]
                 if do_not_recompute_initial_latents:
                     pass
@@ -915,8 +834,7 @@ class CausalInferencePipeline(torch.nn.Module):
                         timestep=timestep * 0,
                         kv_cache=self.kv_cache1,
                         crossattn_cache=self.crossattn_cache,
-                        current_start=current_start_frame
-                        * self.frame_seq_length,
+                        current_start=current_start_frame * self.frame_seq_length,
                     )
                 current_start_frame += 1
             else:
@@ -927,13 +845,11 @@ class CausalInferencePipeline(torch.nn.Module):
             for _ in range(num_input_blocks):
                 current_ref_latents = initial_latent[
                     :,
-                    current_start_frame : current_start_frame
-                    + self.num_frame_per_block,
+                    current_start_frame : current_start_frame + self.num_frame_per_block,
                 ]
                 output[
                     :,
-                    current_start_frame : current_start_frame
-                    + self.num_frame_per_block,
+                    current_start_frame : current_start_frame + self.num_frame_per_block,
                 ] = current_ref_latents
                 if do_not_recompute_initial_latents:
                     pass
@@ -945,8 +861,7 @@ class CausalInferencePipeline(torch.nn.Module):
                         timestep=timestep * 0,
                         kv_cache=self.kv_cache1,
                         crossattn_cache=self.crossattn_cache,
-                        current_start=current_start_frame
-                        * self.frame_seq_length,
+                        current_start=current_start_frame * self.frame_seq_length,
                     )
                 current_start_frame += self.num_frame_per_block
 
@@ -980,9 +895,7 @@ class CausalInferencePipeline(torch.nn.Module):
             ):
                 record_attention_values_list = {}
             # Step 3.1: Spatial denoising loop
-            for time_step_index, current_timestep in enumerate(
-                self.denoising_step_list
-            ):
+            for time_step_index, current_timestep in enumerate(self.denoising_step_list):
                 print(f"{time_step_index = } ; {current_timestep = }")
                 # set current timestep
                 timestep = (
@@ -1006,20 +919,13 @@ class CausalInferencePipeline(torch.nn.Module):
                         timestep=timestep,
                         kv_cache=self.kv_cache1,
                         crossattn_cache=self.crossattn_cache,
-                        current_start=current_start_frame
-                        * self.frame_seq_length,
+                        current_start=current_start_frame * self.frame_seq_length,
                         # below are for drag optimization
-                        trajectories=block_trajectories[
-                            current_chunk_index - num_input_blocks
-                        ],
+                        trajectories=block_trajectories[current_chunk_index - num_input_blocks],
                         masks=masks,
                         movable_mask=movable_mask,
-                        clean_previous_record_feature=previous_record_feature_list[
-                            -1
-                        ],
-                        noisy_previous_record_feature=previous_record_feature_list[
-                            time_step_index
-                        ],
+                        clean_previous_record_feature=previous_record_feature_list[-1],
+                        noisy_previous_record_feature=previous_record_feature_list[time_step_index],
                         model_config=model_config,
                         optimize_target_latent_index=drag_optimize_target_latent_index,
                     )
@@ -1044,9 +950,7 @@ class CausalInferencePipeline(torch.nn.Module):
                         time_step_index
                         in model_config.drag_optim_config.optimize_denoising_steps_indexes
                     ):
-                        record_attention_values_list[time_step_index] = (
-                            record_features
-                        )
+                        record_attention_values_list[time_step_index] = record_features
 
                 if (
                     model_config is not None
@@ -1063,14 +967,10 @@ class CausalInferencePipeline(torch.nn.Module):
                     # Exclude the first chunk (independent first frame latent) by starting no earlier than num_frame_per_block
                     dynamic_normalize_start_frame_index = max(
                         self.num_frame_per_block,
-                        (current_chunk_index - num_norm_blocks)
-                        * self.num_frame_per_block,
+                        (current_chunk_index - num_norm_blocks) * self.num_frame_per_block,
                     )
                     # print(f"{dynamic_normalize_start_frame_index = }")
-                    if (
-                        dynamic_normalize_start_frame_index
-                        < current_start_frame
-                    ):
+                    if dynamic_normalize_start_frame_index < current_start_frame:
                         reference_tensor = torch.cat(
                             [
                                 output[
@@ -1090,9 +990,7 @@ class CausalInferencePipeline(torch.nn.Module):
                         # print(f"{denoised_pred.std() = }")
 
                 if time_step_index < len(self.denoising_step_list) - 1:
-                    next_timestep = self.denoising_step_list[
-                        time_step_index + 1
-                    ]
+                    next_timestep = self.denoising_step_list[time_step_index + 1]
                     noisy_input = self.scheduler.add_noise(
                         denoised_pred.flatten(0, 1),
                         torch.randn_like(denoised_pred.flatten(0, 1)),
@@ -1111,9 +1009,7 @@ class CausalInferencePipeline(torch.nn.Module):
             ] = denoised_pred
 
             # Step 3.3: rerun with timestep zero to update KV cache using clean context
-            context_timestep = (
-                torch.ones_like(timestep) * self.args.context_noise
-            )
+            context_timestep = torch.ones_like(timestep) * self.args.context_noise
             _, denoised_pred = self.generator(
                 noisy_image_or_video=denoised_pred,
                 conditional_dict=conditional_dict,
@@ -1173,9 +1069,7 @@ class CausalInferencePipeline(torch.nn.Module):
                 print(
                     f"    - Block {i} generation time: {block_time:.2f} ms ({100 * block_time / diffusion_time:.2f}% of diffusion)"
                 )
-            print(
-                f"  - VAE decoding time: {vae_time:.2f} ms ({100 * vae_time / total_time:.2f}%)"
-            )
+            print(f"  - VAE decoding time: {vae_time:.2f} ms ({100 * vae_time / total_time:.2f}%)")
             print(f"  - Total time: {total_time:.2f} ms")
 
         return_values = []
@@ -1235,12 +1129,8 @@ class CausalInferencePipeline(torch.nn.Module):
                         dtype=dtype,
                         device=device,
                     ),
-                    "global_end_index": torch.tensor(
-                        [0], dtype=torch.long, device=device
-                    ),
-                    "local_end_index": torch.tensor(
-                        [0], dtype=torch.long, device=device
-                    ),
+                    "global_end_index": torch.tensor([0], dtype=torch.long, device=device),
+                    "local_end_index": torch.tensor([0], dtype=torch.long, device=device),
                 }
             )
 
@@ -1268,12 +1158,8 @@ class CausalInferencePipeline(torch.nn.Module):
         for _ in range(self.num_transformer_blocks):
             crossattn_cache.append(
                 {
-                    "k": torch.zeros(
-                        [batch_size, 512, 12, 128], dtype=dtype, device=device
-                    ),
-                    "v": torch.zeros(
-                        [batch_size, 512, 12, 128], dtype=dtype, device=device
-                    ),
+                    "k": torch.zeros([batch_size, 512, 12, 128], dtype=dtype, device=device),
+                    "v": torch.zeros([batch_size, 512, 12, 128], dtype=dtype, device=device),
                     "is_init": False,
                 }
             )
@@ -1304,7 +1190,4 @@ class CausalInferencePipeline(torch.nn.Module):
         return hasattr(self, "kv_cache1") and self.kv_cache1 is not None
 
     def is_crossattn_cache_initialized(self):
-        return (
-            hasattr(self, "crossattn_cache")
-            and self.crossattn_cache is not None
-        )
+        return hasattr(self, "crossattn_cache") and self.crossattn_cache is not None

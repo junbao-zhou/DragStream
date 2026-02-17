@@ -41,16 +41,10 @@ class Trainer:
         self.disable_wandb = config.disable_wandb
 
         # Configuration for discriminator warmup
-        self.discriminator_warmup_steps = getattr(
-            config, "discriminator_warmup_steps", 0
-        )
-        self.in_discriminator_warmup = (
-            self.step < self.discriminator_warmup_steps
-        )
+        self.discriminator_warmup_steps = getattr(config, "discriminator_warmup_steps", 0)
+        self.in_discriminator_warmup = self.step < self.discriminator_warmup_steps
         if self.in_discriminator_warmup and self.is_main_process:
-            print(
-                f"Starting with discriminator warmup for {self.discriminator_warmup_steps} steps"
-            )
+            print(f"Starting with discriminator warmup for {self.discriminator_warmup_steps} steps")
         self.loss_scale = getattr(config, "loss_scale", 1.0)
 
         # use a random seed for the training
@@ -102,17 +96,11 @@ class Trainer:
         if not config.no_visualize or config.load_raw_video:
             self.model.vae = self.model.vae.to(
                 device=self.device,
-                dtype=(
-                    torch.bfloat16 if config.mixed_precision else torch.float32
-                ),
+                dtype=(torch.bfloat16 if config.mixed_precision else torch.float32),
             )
 
         self.generator_optimizer = torch.optim.AdamW(
-            [
-                param
-                for param in self.model.generator.parameters()
-                if param.requires_grad
-            ],
+            [param for param in self.model.generator.parameters() if param.requires_grad],
             lr=config.gen_lr,
             betas=(config.beta1, config.beta2),
         )
@@ -185,9 +173,7 @@ class Trainer:
         self.generator_ema = None
         if (ema_weight is not None) and (ema_weight > 0.0):
             print(f"Setting up EMA with weight {ema_weight}")
-            self.generator_ema = EMA_FSDP(
-                self.model.generator, decay=ema_weight
-            )
+            self.generator_ema = EMA_FSDP(self.model.generator, decay=ema_weight)
 
         ##############################################################################################################
         # 7. (If resuming) Load the model and optimizer, lr_scheduler, ema's statedicts
@@ -223,12 +209,8 @@ class Trainer:
         if self.step < config.ema_start_step:
             self.generator_ema = None
 
-        self.max_grad_norm_generator = getattr(
-            config, "max_grad_norm_generator", 10.0
-        )
-        self.max_grad_norm_critic = getattr(
-            config, "max_grad_norm_critic", 10.0
-        )
+        self.max_grad_norm_generator = getattr(config, "max_grad_norm_generator", 10.0)
+        self.max_grad_norm_critic = getattr(config, "max_grad_norm_critic", 10.0)
         self.previous_time = None
 
     def save(
@@ -252,9 +234,7 @@ class Trainer:
 
         if self.is_main_process:
             os.makedirs(
-                os.path.join(
-                    self.output_path, f"checkpoint_model_{self.step:06d}"
-                ),
+                os.path.join(self.output_path, f"checkpoint_model_{self.step:06d}"),
                 exist_ok=True,
             )
             torch.save(
@@ -287,9 +267,7 @@ class Trainer:
         # Step 1: Get the next batch of text prompts
         text_prompts = batch["prompts"]  # next(self.dataloader)
         if "ode_latent" in batch:
-            clean_latent = batch["ode_latent"][:, -1].to(
-                device=self.device, dtype=self.dtype
-            )
+            clean_latent = batch["ode_latent"][:, -1].to(device=self.device, dtype=self.dtype)
         else:
             frames = batch["frames"].to(device=self.device, dtype=self.dtype)
             with torch.no_grad():
@@ -308,20 +286,14 @@ class Trainer:
 
         # Step 2: Extract the conditional infos
         with torch.no_grad():
-            conditional_dict = self.model.text_encoder(
-                text_prompts=text_prompts
-            )
+            conditional_dict = self.model.text_encoder(text_prompts=text_prompts)
 
             if not getattr(self, "unconditional_dict", None):
                 unconditional_dict = self.model.text_encoder(
                     text_prompts=[self.config.negative_prompt] * batch_size
                 )
-                unconditional_dict = {
-                    k: v.detach() for k, v in unconditional_dict.items()
-                }
-                self.unconditional_dict = (
-                    unconditional_dict  # cache the unconditional_dict
-                )
+                unconditional_dict = {k: v.detach() for k, v in unconditional_dict.items()}
+                self.unconditional_dict = unconditional_dict  # cache the unconditional_dict
             else:
                 unconditional_dict = self.unconditional_dict
 
@@ -344,9 +316,7 @@ class Trainer:
             total_loss = gan_G_loss * loss_ratio * self.loss_scale
 
             total_loss.backward()
-            generator_grad_norm = self.model.generator.clip_grad_norm_(
-                self.max_grad_norm_generator
-            )
+            generator_grad_norm = self.model.generator.clip_grad_norm_(self.max_grad_norm_generator)
 
             generator_log_dict = {
                 "generator_grad_norm": generator_grad_norm,
@@ -358,28 +328,20 @@ class Trainer:
             generator_log_dict = {}
 
         # Step 4: Store gradients for the critic (if training the critic)
-        (gan_D_loss, r1_loss, r2_loss), critic_log_dict = (
-            self.model.critic_loss(
-                image_or_video_shape=image_or_video_shape,
-                conditional_dict=conditional_dict,
-                unconditional_dict=unconditional_dict,
-                clean_latent=clean_latent,
-                real_image_or_video=clean_latent,
-                initial_latent=image_latent if self.config.i2v else None,
-            )
+        (gan_D_loss, r1_loss, r2_loss), critic_log_dict = self.model.critic_loss(
+            image_or_video_shape=image_or_video_shape,
+            conditional_dict=conditional_dict,
+            unconditional_dict=unconditional_dict,
+            clean_latent=clean_latent,
+            real_image_or_video=clean_latent,
+            initial_latent=image_latent if self.config.i2v else None,
         )
 
         loss_ratio = mini_bs * dist.get_world_size() / full_bs
-        total_loss = (
-            (gan_D_loss + 0.5 * (r1_loss + r2_loss))
-            * loss_ratio
-            * self.loss_scale
-        )
+        total_loss = (gan_D_loss + 0.5 * (r1_loss + r2_loss)) * loss_ratio * self.loss_scale
 
         total_loss.backward()
-        critic_grad_norm = self.model.fake_score.clip_grad_norm_(
-            self.max_grad_norm_critic
-        )
+        critic_grad_norm = self.model.fake_score.clip_grad_norm_(self.max_grad_norm_critic)
 
         critic_log_dict.update(
             {
@@ -399,9 +361,7 @@ class Trainer:
         image=None,
     ):
         batch_size = len(prompts)
-        sampled_noise = torch.randn(
-            [batch_size, 21, 16, 60, 104], device="cuda", dtype=self.dtype
-        )
+        sampled_noise = torch.randn([batch_size, 21, 16, 60, 104], device="cuda", dtype=self.dtype)
         video, _ = pipeline.inference(
             noise=sampled_noise, text_prompts=prompts, return_latents=True
         )
@@ -429,9 +389,7 @@ class Trainer:
                 # Update checkpointer references
                 self.checkpointer_critic.optimizer = self.critic_optimizer
             # Check if we're in the discriminator warmup phase
-            self.in_discriminator_warmup = (
-                self.step < self.discriminator_warmup_steps
-            )
+            self.in_discriminator_warmup = self.step < self.discriminator_warmup_steps
 
             # Only update generator and critic outside the warmup phase
             TRAIN_GENERATOR = (
@@ -482,10 +440,7 @@ class Trainer:
             self.step += 1
 
             # If we just finished warmup, print a message
-            if (
-                self.is_main_process
-                and self.step == self.discriminator_warmup_steps
-            ):
+            if self.is_main_process and self.step == self.discriminator_warmup_steps:
                 print(
                     f"Finished discriminator warmup after {self.discriminator_warmup_steps} steps"
                 )
@@ -496,9 +451,7 @@ class Trainer:
                 and (self.generator_ema is None)
                 and (self.config.ema_weight > 0)
             ):
-                self.generator_ema = EMA_FSDP(
-                    self.model.generator, decay=self.config.ema_weight
-                )
+                self.generator_ema = EMA_FSDP(self.model.generator, decay=self.config.ema_weight)
 
             # Save the model
             if (
@@ -512,9 +465,7 @@ class Trainer:
 
             # Logging
             wandb_loss_dict = {
-                "generator_grad_norm": generator_log_dict[
-                    "generator_grad_norm"
-                ],
+                "generator_grad_norm": generator_log_dict["generator_grad_norm"],
                 "critic_grad_norm": critic_log_dict["critic_grad_norm"],
                 "real_logit": critic_log_dict["noisy_real_logit"],
                 "fake_logit": critic_log_dict["noisy_fake_logit"],
@@ -524,9 +475,7 @@ class Trainer:
             if TRAIN_GENERATOR:
                 wandb_loss_dict.update(
                     {
-                        "generator_grad_norm": generator_log_dict[
-                            "generator_grad_norm"
-                        ],
+                        "generator_grad_norm": generator_log_dict["generator_grad_norm"],
                     }
                 )
             self.all_gather_dict(wandb_loss_dict)
@@ -560,10 +509,7 @@ class Trainer:
                 else:
                     if not self.disable_wandb:
                         wandb.log(
-                            {
-                                "per iteration time": current_time
-                                - self.previous_time
-                            },
+                            {"per iteration time": current_time - self.previous_time},
                             step=self.step,
                         )
                     self.previous_time = current_time

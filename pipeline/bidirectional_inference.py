@@ -16,15 +16,11 @@ class BidirectionalInferencePipeline(torch.nn.Module):
         super().__init__()
         # Step 1: Initialize all models
         self.generator = (
-            WanDiffusionWrapper(
-                **getattr(args, "model_kwargs", {}), is_causal=False
-            )
+            WanDiffusionWrapper(**getattr(args, "model_kwargs", {}), is_causal=False)
             if generator is None
             else generator
         )
-        self.text_encoder = (
-            WanTextEncoder() if text_encoder is None else text_encoder
-        )
+        self.text_encoder = WanTextEncoder() if text_encoder is None else text_encoder
         self.vae = WanVAEWrapper() if vae is None else vae
 
         # Step 2: Initialize all bidirectional wan hyperparmeters
@@ -43,9 +39,7 @@ class BidirectionalInferencePipeline(torch.nn.Module):
                     torch.tensor([0], dtype=torch.float32),
                 )
             )
-            self.denoising_step_list = timesteps[
-                1000 - self.denoising_step_list
-            ]
+            self.denoising_step_list = timesteps[1000 - self.denoising_step_list]
 
     def inference(
         self,
@@ -72,9 +66,7 @@ class BidirectionalInferencePipeline(torch.nn.Module):
             _, pred_image_or_video = self.generator(
                 noisy_image_or_video=noisy_image_or_video,
                 conditional_dict=conditional_dict,
-                timestep=torch.ones(
-                    noise.shape[:2], dtype=torch.long, device=noise.device
-                )
+                timestep=torch.ones(noise.shape[:2], dtype=torch.long, device=noise.device)
                 * current_timestep,
             )  # [B, F, C, H, W]
 

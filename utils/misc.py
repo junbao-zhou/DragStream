@@ -54,5 +54,5 @@ def format_dict(dict_obj, indent: int = 4, indent_per_level: int = 4) -> str:
             formatted_str += f"{' ' * indent}{k}:\n{format_dict(v, indent=indent+indent_per_level, indent_per_level=indent_per_level)}"
         else:
             formatted_str += f"{' ' * indent}{k}: {v}\n"
-    formatted_str = "{\n" + formatted_str + ' ' * (indent - indent_per_level) + "}\n"
+    formatted_str = "{\n" + formatted_str + " " * (indent - indent_per_level) + "}\n"
     return formatted_str

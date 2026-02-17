@@ -29,9 +29,7 @@ class DynamicSwapInstaller:
                     if p is None:
                         return None
                     if p.__class__ == torch.nn.Parameter:
-                        return torch.nn.Parameter(
-                            p.to(**kwargs), requires_grad=p.requires_grad
-                        )
+                        return torch.nn.Parameter(p.to(**kwargs), requires_grad=p.requires_grad)
                     else:
                         return p.to(**kwargs)
             if "_buffers" in self.__dict__:
@@ -55,9 +53,7 @@ class DynamicSwapInstaller:
         module: torch.nn.Module,
     ):
         if "forge_backup_original_class" in module.__dict__:
-            module.__class__ = module.__dict__.pop(
-                "forge_backup_original_class"
-            )
+            module.__class__ = module.__dict__.pop("forge_backup_original_class")
         return
 
     @staticmethod
@@ -83,9 +79,7 @@ def fake_diffusers_current_device(
     target_device: torch.device,
 ):
     if hasattr(model, "scale_shift_table"):
-        model.scale_shift_table.data = model.scale_shift_table.data.to(
-            target_device
-        )
+        model.scale_shift_table.data = model.scale_shift_table.data.to(target_device)
         return
 
     for k, p in model.named_modules():

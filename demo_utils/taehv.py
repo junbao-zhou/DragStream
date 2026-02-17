@@ -50,11 +50,7 @@ class MemBlock(nn.Module):
             nn.ReLU(inplace=True),
             conv(n_out, n_out),
         )
-        self.skip = (
-            nn.Conv2d(n_in, n_out, 1, bias=False)
-            if n_in != n_out
-            else nn.Identity()
-        )
+        self.skip = nn.Conv2d(n_in, n_out, 1, bias=False) if n_in != n_out else nn.Identity()
         self.act = nn.ReLU(inplace=True)
 
     def forward(
@@ -136,9 +132,7 @@ def apply_model_with_memblocks(
 
     Returns NTCHW tensor of output data.
     """
-    assert (
-        x.ndim == 5
-    ), f"TAEHV operates on NTCHW tensors, but got {x.ndim}-dim tensor"
+    assert x.ndim == 5, f"TAEHV operates on NTCHW tensors, but got {x.ndim}-dim tensor"
     N, T, C, H, W = x.shape
     if parallel:
         x = x.reshape(N * T, C, H, W)
@@ -148,9 +142,7 @@ def apply_model_with_memblocks(
                 NT, C, H, W = x.shape
                 T = NT // N
                 _x = x.reshape(N, T, C, H, W)
-                mem = F.pad(_x, (0, 0, 0, 0, 0, 0, 1, 0), value=0)[
-                    :, :T
-                ].reshape(x.shape)
+                mem = F.pad(_x, (0, 0, 0, 0, 0, 0, 1, 0), value=0)[:, :T].reshape(x.shape)
                 x = b(x, mem)
             else:
                 x = b(x)
@@ -165,8 +157,7 @@ def apply_model_with_memblocks(
         # because of the cursed TPool/TGrow blocks, this is not a nested loop,
         # it's actually a ***graph traversal*** problem! so let's make a queue
         work_queue = [
-            TWorkItem(xt, 0)
-            for t, xt in enumerate(x.reshape(N, T * C, H, W).chunk(T, dim=1))
+            TWorkItem(xt, 0) for t, xt in enumerate(x.reshape(N, T * C, H, W).chunk(T, dim=1))
         ]
         # in addition to manually managing our queue, we also need to manually manage our progressbar.
         # we'll update it for every source node that we consume.
@@ -199,9 +190,7 @@ def apply_model_with_memblocks(
                 elif isinstance(b, TPool):
                     # pool blocks are miserable
                     if mem[i] is None:
-                        mem[i] = (
-                            []
-                        )  # pool memory is itself a queue of inputs to pool
+                        mem[i] = []  # pool memory is itself a queue of inputs to pool
                     mem[i].append(xt)
                     if len(mem[i]) > b.stride:
                         # pool mem is in invalid state, we should have pooled before this
@@ -221,9 +210,7 @@ def apply_model_with_memblocks(
                     xt = b(xt)
                     NT, C, H, W = xt.shape
                     # each tgrow has multiple successor nodes
-                    for xt_next in reversed(
-                        xt.view(N, b.stride * C, H, W).chunk(b.stride, 1)
-                    ):
+                    for xt_next in reversed(xt.view(N, b.stride * C, H, W).chunk(b.stride, 1)):
                         # add successor to work queue
                         work_queue.insert(0, TWorkItem(xt_next, i + 1))
                 else:
@@ -304,9 +291,7 @@ class TAEHV(nn.Module):
         if checkpoint_path is not None:
             self.load_state_dict(
                 self.patch_tgrow_layers(
-                    torch.load(
-                        checkpoint_path, map_location="cpu", weights_only=True
-                    )
+                    torch.load(checkpoint_path, map_location="cpu", weights_only=True)
                 )
             )
 
@@ -410,7 +395,7 @@ def main():
                 self.cap.release()
                 raise StopIteration  # End of video or error
             return torch.from_numpy(
-                cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                cv2.cvtColor(frame, cv2.COLOR_BGR2RGB),
             ).permute(
                 2, 0, 1
             )  # BGR HWC -> RGB CHW
@@ -428,21 +413,15 @@ def main():
                 fps,
                 width_height,
             )
-            assert (
-                self.writer.isOpened()
-            ), f"Could not create writer for {video_file_path}"
+            assert self.writer.isOpened(), f"Could not create writer for {video_file_path}"
 
         def write(
             self,
             frame_tensor,
         ):
-            assert (
-                frame_tensor.ndim == 3 and frame_tensor.shape[0] == 3
-            ), f"{frame_tensor.shape}??"
+            assert frame_tensor.ndim == 3 and frame_tensor.shape[0] == 3, f"{frame_tensor.shape}??"
             self.writer.write(
-                cv2.cvtColor(
-                    frame_tensor.permute(1, 2, 0).numpy(), cv2.COLOR_RGB2BGR
-                )
+                cv2.cvtColor(frame_tensor.permute(1, 2, 0).numpy(), cv2.COLOR_RGB2BGR)
             )  # RGB CHW -> BGR HWC
 
         def __del__(
@@ -470,18 +449,14 @@ def main():
         vid_dev = video.to(dev, dtype).div_(255.0)
         # convert to device tensor
         if video.numel() < 100_000_000:
-            print(
-                f"  {video_path} seems small enough, will process all frames in parallel"
-            )
+            print(f"  {video_path} seems small enough, will process all frames in parallel")
             # convert to device tensor
             vid_enc = taehv.encode_video(vid_dev)
             print(f"  Encoded {video_path} -> {vid_enc.shape}. Decoding...")
             vid_dec = taehv.decode_video(vid_enc)
             print(f"  Decoded {video_path} -> {vid_dec.shape}")
         else:
-            print(
-                f"  {video_path} seems large, will process each frame sequentially"
-            )
+            print(f"  {video_path} seems large, will process each frame sequentially")
             # convert to device tensor
             vid_enc = taehv.encode_video(vid_dev, parallel=False)
             print(f"  Encoded {video_path} -> {vid_enc.shape}. Decoding...")

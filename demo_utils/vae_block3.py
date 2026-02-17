@@ -42,9 +42,7 @@ class Resample(nn.Module):
                 Upsample(scale_factor=(2.0, 2.0), mode="nearest"),
                 nn.Conv2d(dim, dim // 2, 3, padding=1),
             )
-            self.time_conv = CausalConv3d(
-                dim, dim * 2, (3, 1, 1), padding=(1, 0, 0)
-            )
+            self.time_conv = CausalConv3d(dim, dim * 2, (3, 1, 1), padding=(1, 0, 0))
 
         elif mode == "downsample2d":
             self.resample = nn.Sequential(
@@ -56,9 +54,7 @@ class Resample(nn.Module):
                 nn.ZeroPad2d((0, 1, 0, 1)),
                 nn.Conv2d(dim, dim, 3, stride=(2, 2)),
             )
-            self.time_conv = CausalConv3d(
-                dim, dim, (3, 1, 1), stride=(2, 1, 1), padding=(0, 0, 0)
-            )
+            self.time_conv = CausalConv3d(dim, dim, (3, 1, 1), stride=(2, 1, 1), padding=(0, 0, 0))
 
         else:
             self.resample = nn.Identity()
@@ -87,9 +83,7 @@ class Resample(nn.Module):
                         # cache last frame of last two chunk
                         cache_x = torch.cat(
                             [
-                                feat_cache[idx][:, :, -1, :, :]
-                                .unsqueeze(2)
-                                .to(cache_x.device),
+                                feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device),
                                 cache_x,
                             ],
                             dim=2,
@@ -114,9 +108,7 @@ class Resample(nn.Module):
                     feat_idx[0] += 1
 
                     x = x.reshape(b, 2, c, t, h, w)
-                    x = torch.stack(
-                        (x[:, 0, :, :, :, :], x[:, 1, :, :, :, :]), 3
-                    )
+                    x = torch.stack((x[:, 0, :, :, :, :], x[:, 1, :, :, :, :]), 3)
                     x = x.reshape(b, c, t * 2, h, w)
         t = x.shape[2]
         x = rearrange(x, "b c t h w -> (b t) c h w")
@@ -136,9 +128,7 @@ class Resample(nn.Module):
                     #     # cache last frame of last two chunk
                     #     cache_x = torch.cat([feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device), cache_x], dim=2)
 
-                    x = self.time_conv(
-                        torch.cat([feat_cache[idx][:, :, -1:, :, :], x], 2)
-                    )
+                    x = self.time_conv(torch.cat([feat_cache[idx][:, :, -1:, :, :], x], 2))
                     feat_cache[idx] = cache_x
                     feat_idx[0] += 1
         return x
@@ -238,22 +228,16 @@ class VAEDecoderWrapper(nn.Module):
         ]
 
         if isinstance(scale[0], torch.Tensor):
-            z = z / scale[1].view(1, self.z_dim, 1, 1, 1) + scale[0].view(
-                1, self.z_dim, 1, 1, 1
-            )
+            z = z / scale[1].view(1, self.z_dim, 1, 1, 1) + scale[0].view(1, self.z_dim, 1, 1, 1)
         else:
             z = z / scale[1] + scale[0]
         iter_ = z.shape[2]
         x = self.conv2(z)
         for i in range(iter_):
             if i == 0:
-                out, feat_cache = self.decoder(
-                    x[:, :, i : i + 1, :, :], feat_cache=feat_cache
-                )
+                out, feat_cache = self.decoder(x[:, :, i : i + 1, :, :], feat_cache=feat_cache)
             else:
-                out_, feat_cache = self.decoder(
-                    x[:, :, i : i + 1, :, :], feat_cache=feat_cache
-                )
+                out_, feat_cache = self.decoder(x[:, :, i : i + 1, :, :], feat_cache=feat_cache)
                 out = torch.cat([out, out_], 2)
 
         out = out.float().clamp_(-1, 1)
@@ -338,9 +322,7 @@ class VAEDecoder3d(nn.Module):
             # cache last frame of last two chunk
             cache_x = torch.cat(
                 [
-                    feat_cache[idx][:, :, -1, :, :]
-                    .unsqueeze(2)
-                    .to(cache_x.device),
+                    feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device),
                     cache_x,
                 ],
                 dim=2,
@@ -369,9 +351,7 @@ class VAEDecoder3d(nn.Module):
                     # cache last frame of last two chunk
                     cache_x = torch.cat(
                         [
-                            feat_cache[idx][:, :, -1, :, :]
-                            .unsqueeze(2)
-                            .to(cache_x.device),
+                            feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device),
                             cache_x,
                         ],
                         dim=2,

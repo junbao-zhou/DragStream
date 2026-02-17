@@ -34,9 +34,7 @@ class BidirectionalDiffusionInferencePipeline(torch.nn.Module):
             if generator is None
             else generator
         )
-        self.text_encoder = (
-            WanTextEncoder() if text_encoder is None else text_encoder
-        )
+        self.text_encoder = WanTextEncoder() if text_encoder is None else text_encoder
         self.vae = WanVAEWrapper() if vae is None else vae
 
         # Step 2: Initialize scheduler
@@ -78,12 +76,8 @@ class BidirectionalDiffusionInferencePipeline(torch.nn.Module):
                 [latents.shape[0], 21], device=noise.device, dtype=torch.float32
             )
 
-            flow_pred_cond, _ = self.generator(
-                latent_model_input, conditional_dict, timestep
-            )
-            flow_pred_uncond, _ = self.generator(
-                latent_model_input, unconditional_dict, timestep
-            )
+            flow_pred_cond, _ = self.generator(latent_model_input, conditional_dict, timestep)
+            flow_pred_uncond, _ = self.generator(latent_model_input, unconditional_dict, timestep)
 
             flow_pred = flow_pred_uncond + self.args.guidance_scale * (
                 flow_pred_cond - flow_pred_uncond
@@ -128,9 +122,7 @@ class BidirectionalDiffusionInferencePipeline(torch.nn.Module):
                 shift=1,
                 use_dynamic_shifting=False,
             )
-            sampling_sigmas = get_sampling_sigmas(
-                self.sampling_steps, self.shift
-            )
+            sampling_sigmas = get_sampling_sigmas(self.sampling_steps, self.shift)
             self.timesteps, _ = retrieve_timesteps(
                 sample_scheduler, device=noise.device, sigmas=sampling_sigmas
             )

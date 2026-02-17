@@ -212,9 +212,7 @@ def draw_mask_on_image(
     overlay[..., 1] = rgb[1]
     overlay[..., 2] = rgb[2]
     overlay[..., 3] = (
-        (alpha * 255).astype(np.uint8)
-        if isinstance(alpha, np.ndarray)
-        else int(alpha * 255)
+        (alpha * 255).astype(np.uint8) if isinstance(alpha, np.ndarray) else int(alpha * 255)
     )
 
     # Zero alpha where mask is 0
@@ -266,15 +264,11 @@ def draw_points_on_image(
     # if color is not a list, change it to a list with length of points
     if not isinstance(color, list):
         color = [color] * len(points)
-    assert len(color) == len(
-        points
-    ), "color must be a list of the same length as points"
+    assert len(color) == len(points), "color must be a list of the same length as points"
     # if radius is not a list, change it to a list with length of points
     if not isinstance(radius, list):
         radius = [radius] * len(points)
-    assert len(radius) == len(
-        points
-    ), "radius must be a list of the same length as points"
+    assert len(radius) == len(points), "radius must be a list of the same length as points"
     image = image_to_pil(image)
     draw = ImageDraw.Draw(image)
 
@@ -318,9 +312,7 @@ def draw_lines_on_image(
         else:
             color_list = color
         if len(color_list) != len(points) - 1:
-            raise ValueError(
-                "color list length must be len(points)-1 or len(points)"
-            )
+            raise ValueError("color list length must be len(points)-1 or len(points)")
 
     def normalize(c):
         if isinstance(c, str):
@@ -427,9 +419,7 @@ def dilate_mask(
     if mask is None:
         return None
     mask = mask.astype(np.uint8)
-    mask = cv2.dilate(
-        mask, np.ones((dilate_factor, dilate_factor), np.uint8), iterations=1
-    )
+    mask = cv2.dilate(mask, np.ones((dilate_factor, dilate_factor), np.uint8), iterations=1)
     return mask
 
 
@@ -508,9 +498,7 @@ def calculate_angle(vector_1: torch.Tensor, vector_2: torch.Tensor):
     magnitude_2 = torch.norm(vector_2)
 
     if magnitude_1 == 0 or magnitude_2 == 0:
-        raise ValueError(
-            "One of the vectors has zero magnitude, cannot calculate angle."
-        )
+        raise ValueError("One of the vectors has zero magnitude, cannot calculate angle.")
 
     cos_theta = dot_product / (magnitude_1 * magnitude_2)
     cos_theta = torch.clamp(cos_theta, -1.0, 1.0)
@@ -552,9 +540,7 @@ def tensor_2d_translation(
     Always performs the operation in float32 and casts back to the original tensor dtype.
     """
     # Record original dtype (before any conversion)
-    original_dtype = (
-        tensor.dtype if isinstance(tensor, torch.Tensor) else torch.float32
-    )
+    original_dtype = tensor.dtype if isinstance(tensor, torch.Tensor) else torch.float32
 
     if not isinstance(tensor, torch.Tensor):
         tensor = torch.tensor(tensor)
@@ -601,16 +587,10 @@ def tensor_2d_rotation(
     angle and center are also promoted to float32 internally.
     """
     # Record original dtypes
-    tensor_original_dtype = (
-        tensor.dtype if isinstance(tensor, torch.Tensor) else torch.float32
-    )
-    angle_original_dtype = (
-        angle.dtype if isinstance(angle, torch.Tensor) else None
-    )
+    tensor_original_dtype = tensor.dtype if isinstance(tensor, torch.Tensor) else torch.float32
+    angle_original_dtype = angle.dtype if isinstance(angle, torch.Tensor) else None
     center_original_dtype = (
-        (center.dtype if isinstance(center, torch.Tensor) else None)
-        if center is not None
-        else None
+        (center.dtype if isinstance(center, torch.Tensor) else None) if center is not None else None
     )
 
     if not isinstance(tensor, torch.Tensor):
@@ -683,11 +663,7 @@ def resize_tensor(
         size=size,
         scale_factor=scale_factor,
         mode=mode,
-        align_corners=(
-            True
-            if mode in ["linear", "bilinear", "bicubic", "trilinear"]
-            else None
-        ),
+        align_corners=(True if mode in ["linear", "bilinear", "bicubic", "trilinear"] else None),
     )
 
     if len(origin_shape) == 2:
@@ -735,16 +711,12 @@ def warp_tensor(
 
     if is_rotation:
         if rotation_center is None:
-            raise ValueError(
-                "rotation_center is required when is_rotation is True"
-            )
+            raise ValueError("rotation_center is required when is_rotation is True")
         if not isinstance(rotation_center, torch.Tensor):
             rotation_center = torch.tensor(
                 rotation_center, dtype=tensor.dtype, device=tensor.device
             )
-        center = rotation_center.to(
-            dtype=tensor.dtype, device=tensor.device
-        ) / scale
+        center = rotation_center.to(dtype=tensor.dtype, device=tensor.device) / scale
         return tensor_2d_rotation(tensor, angle=delta, center=center, mode=mode)
     else:
         # delta can be a tuple/list/tensor; tensor_2d_translation handles conversion
@@ -820,11 +792,7 @@ def combine_masks_or(
     if len(masks) == 0:
         raise ValueError("masks list is empty")
 
-    result = (
-        masks[0].clone()
-        if isinstance(masks[0], torch.Tensor)
-        else masks[0].copy()
-    )
+    result = masks[0].clone() if isinstance(masks[0], torch.Tensor) else masks[0].copy()
     for m in masks[1:]:
         result = result + m
 
@@ -874,12 +842,10 @@ def normalize_tensor_to_match_tensor(
     dim,
     reference_tensor,
 ):
-    reference_mean, reference_std, reference_max, reference_min = (
-        record_tensor_statics(
-            reference_tensor,
-            axis=dim,
-            keepdim=True,
-        )
+    reference_mean, reference_std, reference_max, reference_min = record_tensor_statics(
+        reference_tensor,
+        axis=dim,
+        keepdim=True,
     )
 
     return normalize_tensor(

@@ -86,9 +86,7 @@ def save_videos(
     write_video(str(current_video_path), current_video, fps=fps)
 
     if start_block_index > 0:
-        full_prefix = (
-            f"block_0_{start_block_index}_{mode}_{end_block_index}"
-        )
+        full_prefix = f"block_0_{start_block_index}_{mode}_{end_block_index}"
         full_video_path = save_dir / f"{full_prefix}.mp4"
         write_video(str(full_video_path), all_video, fps=fps)
         return full_video_path

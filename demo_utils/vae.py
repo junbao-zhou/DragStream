@@ -32,11 +32,7 @@ class ResidualBlock(nn.Module):
             nn.Dropout(dropout),
             CausalConv3d(out_dim, out_dim, 3, padding=1),
         )
-        self.shortcut = (
-            CausalConv3d(in_dim, out_dim, 1)
-            if in_dim != out_dim
-            else nn.Identity()
-        )
+        self.shortcut = CausalConv3d(in_dim, out_dim, 1) if in_dim != out_dim else nn.Identity()
 
     def forward(
         self,
@@ -54,9 +50,7 @@ class ResidualBlock(nn.Module):
                     # cache last frame of last two chunk
                     cache_x = torch.cat(
                         [
-                            feat_cache[:, :, -1, :, :]
-                            .unsqueeze(2)
-                            .to(cache_x.device),
+                            feat_cache[:, :, -1, :, :].unsqueeze(2).to(cache_x.device),
                             cache_x,
                         ],
                         dim=2,
@@ -92,9 +86,7 @@ class Resample(nn.Module):
                 Upsample(scale_factor=(2.0, 2.0), mode="nearest"),
                 nn.Conv2d(dim, dim // 2, 3, padding=1),
             )
-            self.time_conv = CausalConv3d(
-                dim, dim * 2, (3, 1, 1), padding=(1, 0, 0)
-            )
+            self.time_conv = CausalConv3d(dim, dim * 2, (3, 1, 1), padding=(1, 0, 0))
         else:
             self.resample = nn.Identity()
 
@@ -116,9 +108,7 @@ class Resample(nn.Module):
             #     lambda: (torch.cat([torch.zeros_like(x), x], dim=2), feat_cache.clone()),
             #     lambda: self.temporal_conv(x, feat_cache),
             # )
-            x, out_feat_cache = self.temporal_conv(
-                x, is_first_frame, feat_cache
-            )
+            x, out_feat_cache = self.temporal_conv(x, is_first_frame, feat_cache)
             out_feat_cache = torch.cond(
                 is_first_frame,
                 lambda: feat_cache.clone().contiguous(),
@@ -257,9 +247,7 @@ class VAEDecoderWrapperSingle(nn.Module):
         ]
 
         if isinstance(scale[0], torch.Tensor):
-            z = z / scale[1].view(1, self.z_dim, 1, 1, 1) + scale[0].view(
-                1, self.z_dim, 1, 1, 1
-            )
+            z = z / scale[1].view(1, self.z_dim, 1, 1, 1) + scale[0].view(1, self.z_dim, 1, 1, 1)
         else:
             z = z / scale[1] + scale[0]
         x = self.conv2(z)
@@ -347,9 +335,7 @@ class VAEDecoder3d(nn.Module):
             # cache last frame of last two chunk
             cache_x = torch.cat(
                 [
-                    feat_cache[idx][:, :, -1, :, :]
-                    .unsqueeze(2)
-                    .to(cache_x.device),
+                    feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device),
                     cache_x,
                 ],
                 dim=2,
@@ -393,9 +379,7 @@ class VAEDecoder3d(nn.Module):
                     # cache last frame of last two chunk
                     cache_x = torch.cat(
                         [
-                            feat_cache[idx][:, :, -1, :, :]
-                            .unsqueeze(2)
-                            .to(cache_x.device),
+                            feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device),
                             cache_x,
                         ],
                         dim=2,
@@ -413,14 +397,10 @@ class VAETRTWrapper:
         self,
     ):
         TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
-        with open("checkpoints/vae_decoder_int8.trt", "rb") as f, trt.Runtime(
-            TRT_LOGGER
-        ) as rt:
+        with open("checkpoints/vae_decoder_int8.trt", "rb") as f, trt.Runtime(TRT_LOGGER) as rt:
             self.engine: trt.ICudaEngine = rt.deserialize_cuda_engine(f.read())
 
-        self.context: trt.IExecutionContext = (
-            self.engine.create_execution_context()
-        )
+        self.context: trt.IExecutionContext = self.engine.create_execution_context()
         self.stream = torch.cuda.current_stream().cuda_stream
 
         # ──────────────────────────────
@@ -444,9 +424,7 @@ class VAETRTWrapper:
         # ---- inputs ----
         for i, name in enumerate(ALL_INPUTS_NAMES):
             tensor, scale = test_inputs[i], 1 / 127
-            tensor = self.quantize_if_needed(
-                tensor, self.engine.get_tensor_dtype(name), scale
-            )
+            tensor = self.quantize_if_needed(tensor, self.engine.get_tensor_dtype(name), scale)
 
             # dynamic shapes
             if -1 in self.engine.get_tensor_shape(name):
@@ -467,9 +445,7 @@ class VAETRTWrapper:
             if self.engine.get_tensor_mode(name) == trt.TensorIOMode.OUTPUT:
                 shape = tuple(self.context.get_tensor_shape(name))
                 dtype = self.dtype_map[self.engine.get_tensor_dtype(name)]
-                out = torch.empty(
-                    shape, dtype=dtype, device="cuda"
-                ).contiguous()
+                out = torch.empty(shape, dtype=dtype, device="cuda").contiguous()
 
                 self.context.set_tensor_address(name, int(out.data_ptr()))
                 self.outputs.append(out)
@@ -483,11 +459,7 @@ class VAETRTWrapper:
         scale,
     ):
         if expected_dtype == trt.int8 and t.dtype != torch.int8:
-            t = (
-                torch.clamp((t / scale).round(), -128, 127)
-                .to(torch.int8)
-                .contiguous()
-            )
+            t = torch.clamp((t / scale).round(), -128, 127).to(torch.int8).contiguous()
         return t  # keep pointer alive
 
     def forward(
@@ -496,9 +468,7 @@ class VAETRTWrapper:
     ):
         for i, name in enumerate(ALL_INPUTS_NAMES):
             tensor, scale = test_inputs[i], 1 / 127
-            tensor = self.quantize_if_needed(
-                tensor, self.engine.get_tensor_dtype(name), scale
-            )
+            tensor = self.quantize_if_needed(tensor, self.engine.get_tensor_dtype(name), scale)
             self.context.set_tensor_address(name, int(tensor.data_ptr()))
             self.device_buffers[name] = tensor
 

@@ -44,9 +44,7 @@ class SiD(SelfForcingModel):
         self.ts_schedule_max = getattr(args, "ts_schedule_max", False)
 
         if getattr(self.scheduler, "alphas_cumprod", None) is not None:
-            self.scheduler.alphas_cumprod = self.scheduler.alphas_cumprod.to(
-                device
-            )
+            self.scheduler.alphas_cumprod = self.scheduler.alphas_cumprod.to(device)
         else:
             self.scheduler.alphas_cumprod = None
 
@@ -137,8 +135,7 @@ class SiD(SelfForcingModel):
 
         pred_real_image = (
             pred_real_image_cond
-            + (pred_real_image_cond - pred_real_image_uncond)
-            * self.real_guidance_scale
+            + (pred_real_image_cond - pred_real_image_uncond) * self.real_guidance_scale
         )
 
         # Step 2.3: SiD Loss
@@ -146,8 +143,7 @@ class SiD(SelfForcingModel):
         # TODO: Double?
         sid_loss = (pred_real_image.double() - pred_fake_image.double()) * (
             (pred_real_image.double() - original_latent.double())
-            - self.sid_alpha
-            * (pred_real_image.double() - pred_fake_image.double())
+            - self.sid_alpha * (pred_real_image.double() - pred_fake_image.double())
         )
 
         # Step 2.4: Loss normalizer
@@ -238,12 +234,10 @@ class SiD(SelfForcingModel):
 
         # Step 1: Run generator on backward simulated noisy input
         with torch.no_grad():
-            generated_image, _, denoised_timestep_from, denoised_timestep_to = (
-                self._run_generator(
-                    image_or_video_shape=image_or_video_shape,
-                    conditional_dict=conditional_dict,
-                    initial_latent=initial_latent,
-                )
+            generated_image, _, denoised_timestep_from, denoised_timestep_to = self._run_generator(
+                image_or_video_shape=image_or_video_shape,
+                conditional_dict=conditional_dict,
+                initial_latent=initial_latent,
             )
 
         # Step 2: Compute the fake prediction

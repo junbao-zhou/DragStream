@@ -1,4 +1,3 @@
-
 import math
 from typing import List, Sequence, Tuple, Union
 import torch
@@ -14,7 +13,7 @@ torch.set_printoptions(
 )
 
 
-def _get_center_distance(size: Tuple[int], device: str = 'cpu') -> Tensor:
+def _get_center_distance(size: Tuple[int], device: str = "cpu") -> Tensor:
     """Compute the distance of each matrix element to the center.
 
     Args:
@@ -26,21 +25,22 @@ def _get_center_distance(size: Tuple[int], device: str = 'cpu') -> Tensor:
     """
     m, n = size
     i_ind = torch.tile(
-        torch.tensor([[[i]] for i in range(m)], device=device),
-        dims=[1, n, 1]).float()  # [m, n, 1]
+        torch.tensor([[[i]] for i in range(m)], device=device), dims=[1, n, 1]
+    ).float()  # [m, n, 1]
     j_ind = torch.tile(
-        torch.tensor([[[i] for i in range(n)]], device=device),
-        dims=[m, 1, 1]).float()  # [m, n, 1]
+        torch.tensor([[[i] for i in range(n)]], device=device), dims=[m, 1, 1]
+    ).float()  # [m, n, 1]
     ij_ind = torch.cat([i_ind, j_ind], dim=-1)  # [m, n, 2]
     ij_ind = ij_ind.reshape([m * n, 1, 2])  # [m * n, 1, 2]
-    center_ij = torch.tensor(((m - 1) / 2, (n - 1) / 2),
-                             device=device).reshape(1, 2)
+    center_ij = torch.tensor(((m - 1) / 2, (n - 1) / 2), device=device).reshape(1, 2)
     center_ij = torch.tile(center_ij, dims=[m * n, 1, 1])
     dist = torch.cdist(ij_ind, center_ij, p=2).reshape([m, n])
     return dist
 
 
-def _get_ideal_weights(size: Tuple[int], D0: int, lowpass: bool = True, device: str = 'cpu') -> Tensor:
+def _get_ideal_weights(
+    size: Tuple[int], D0: int, lowpass: bool = True, device: str = "cpu"
+) -> Tensor:
     """Get H(u, v) of ideal bandpass filter.
 
     Args:
@@ -104,16 +104,16 @@ def ideal_bandpass(image: Tensor, D0: int, lowpass: bool = True) -> Tensor:
         Tensor: [B, C, H, W].
     """
     img_fft = _to_freq(image)
-    weights = _get_ideal_weights(
-        img_fft.shape[-2:], D0=D0, lowpass=lowpass, device=image.device)
+    weights = _get_ideal_weights(img_fft.shape[-2:], D0=D0, lowpass=lowpass, device=image.device)
     img_fft = img_fft * weights
     img = _to_space(img_fft)
     return img
 
+
 # Butterworth
 
 
-def _get_butterworth_weights(size: Tuple[int], D0: int, n: int, device: str = 'cpu') -> Tensor:
+def _get_butterworth_weights(size: Tuple[int], D0: int, n: int, device: str = "cpu") -> Tensor:
     """Get H(u, v) of Butterworth filter.
 
     Args:
@@ -142,8 +142,7 @@ def butterworth(image: Tensor, D0: int, n: int) -> Tensor:
         Tensor: [B, C, H, W].
     """
     img_fft = _to_freq(image)
-    weights = _get_butterworth_weights(
-        image.shape[-2:], D0, n, device=image.device)
+    weights = _get_butterworth_weights(image.shape[-2:], D0, n, device=image.device)
     img_fft = weights * img_fft
     img = _to_space(img_fft)
     return img
@@ -296,13 +295,11 @@ def butterworth(image: Tensor, D0: int, n: int) -> Tensor:
 # ------------------------ Image loading ------------------------
 def load_grayscale_image():
     # Try common sample images; fall back to skimage if available; else ask user to put an image in cwd
-    candidates = [
-        'onion.png', 'cameraman.tif',
-        'peppers.png', 'lena.png', 'camera.png']
+    candidates = ["onion.png", "cameraman.tif", "peppers.png", "lena.png", "camera.png"]
     for name in candidates:
         if os.path.exists(name):
             # img = Image.open(name).convert('L')
-            img = Image.open(name).convert('RGB')
+            img = Image.open(name).convert("RGB")
             image_np = np.asarray(img, dtype=np.float64)
             # print(f"{image_np = }")
             image_np = image_np / 255.0
@@ -313,10 +310,11 @@ def load_grayscale_image():
         "Could not find a local image. Place an image (e.g., cameraman.tif/peppers.png) in the working directory."
     )
 
+
 # ------------------------ DCT implementations (orthonormal) ------------------------
 
 
-def dct2_matrix_ortho(N, device='cpu', dtype=torch.float32):
+def dct2_matrix_ortho(N, device="cpu", dtype=torch.float32):
     # T2[k, n] = sqrt(2/N) * beta(k) * cos(pi/N * (n + 0.5) * k), beta(0)=1/sqrt(2)
     n = torch.arange(N, device=device, dtype=dtype)
     k = torch.arange(N, device=device, dtype=dtype).unsqueeze(1)
@@ -327,7 +325,7 @@ def dct2_matrix_ortho(N, device='cpu', dtype=torch.float32):
     return T  # orthonormal; inverse is T.T
 
 
-def dct1_matrix_ortho(N, device='cpu', dtype=torch.float32):
+def dct1_matrix_ortho(N, device="cpu", dtype=torch.float32):
     # T1[k, n] = sqrt(2/(N-1)) * alpha(k) * alpha(n) * cos(pi/(N-1) * n*k)
     # alpha(0)=alpha(N-1)=1/sqrt(2), else 1. Self-inverse (orthonormal and symmetric).
     if N < 2:
@@ -339,8 +337,7 @@ def dct1_matrix_ortho(N, device='cpu', dtype=torch.float32):
     alpha = torch.ones(N, device=device, dtype=dtype)
     alpha[0] = 1 / math.sqrt(2.0)
     alpha[-1] = 1 / math.sqrt(2.0)
-    T = math.sqrt(2.0 / (N - 1)) * \
-        (alpha.unsqueeze(1) * C * alpha.unsqueeze(0))
+    T = math.sqrt(2.0 / (N - 1)) * (alpha.unsqueeze(1) * C * alpha.unsqueeze(0))
     return T  # orthonormal, symmetric, self-inverse
 
 
@@ -388,7 +385,7 @@ def _complex_dtype_from_real(real_dtype):
     raise TypeError("Only float32/float64 supported.")
 
 
-def dct2_fft(x, dim=-1, norm='ortho'):
+def dct2_fft(x, dim=-1, norm="ortho"):
     """
     DCT-II via even-symmetric 2N extension and torch.fft.rfft.
     x: real tensor (..., N)
@@ -412,15 +409,14 @@ def dct2_fft(x, dim=-1, norm='ortho'):
     k = torch.arange(N, device=x.device, dtype=x.dtype)
     # exp(-j*pi*k/(2N))
     ctype = _complex_dtype_from_real(x.dtype)
-    twiddle = torch.exp(-1j * math.pi * k / (2.0 * N)
-                        ).to(dtype=ctype, device=x.device)
+    twiddle = torch.exp(-1j * math.pi * k / (2.0 * N)).to(dtype=ctype, device=x.device)
     for _ in range(dim, S.dim() - 1):
         twiddle = twiddle.unsqueeze(-1)
 
     # Take real part; factor 1/2 (see derivation)
     C = (S.narrow(dim, 0, N) * twiddle).real * 0.5  # (..., N)
 
-    if norm == 'ortho':
+    if norm == "ortho":
         # Orthonormal scaling: sqrt(2/N) * beta(k), beta(0)=1/sqrt(2)
         C = C * math.sqrt(2.0 / N)
         index0 = [slice(None)] * C.dim()
@@ -433,7 +429,7 @@ def dct2_fft(x, dim=-1, norm='ortho'):
     return C
 
 
-def idct2_fft(C, dim=-1, norm='ortho'):
+def idct2_fft(C, dim=-1, norm="ortho"):
     """
     Inverse of dct2_fft (i.e., DCT-III) using torch.fft.irfft.
     C: real tensor (..., N) with same norm used in dct2_fft.
@@ -447,7 +443,7 @@ def idct2_fft(C, dim=-1, norm='ortho'):
 
     # Undo orthonormal scaling to get "unnormalized" DCT-II coefficients
     Cun = C
-    if norm == 'ortho':
+    if norm == "ortho":
         Cun = C / math.sqrt(2.0 / N)
         index0 = [slice(None)] * Cun.dim()
         index0[dim] = 0
@@ -462,8 +458,7 @@ def idct2_fft(C, dim=-1, norm='ortho'):
     # S[k] = 2*Cun[k] * exp(+j*pi*k/(2N)), for k=0..N-1
     k = torch.arange(N, device=C.device, dtype=C.dtype)
     ctype = _complex_dtype_from_real(C.dtype)
-    twiddle = torch.exp(+1j * math.pi * k / (2.0 * N)
-                        ).to(dtype=ctype, device=C.device)
+    twiddle = torch.exp(+1j * math.pi * k / (2.0 * N)).to(dtype=ctype, device=C.device)
     for _ in range(dim, C.dim() - 1):
         twiddle = twiddle.unsqueeze(-1)
 
@@ -504,7 +499,7 @@ def _normalize_dims(dims, ndim):
     return dims
 
 
-def dct2_nd_fft(x, dims, norm='ortho'):
+def dct2_nd_fft(x, dims, norm="ortho"):
     """
     N-D DCT-II applied along the specified dimensions.
     x: real tensor
@@ -518,7 +513,7 @@ def dct2_nd_fft(x, dims, norm='ortho'):
     return y
 
 
-def idct2_nd_fft(X, dims, norm='ortho'):
+def idct2_nd_fft(X, dims, norm="ortho"):
     """
     N-D inverse of DCT-II (DCT-III) along the specified dimensions.
     """
@@ -531,7 +526,7 @@ def idct2_nd_fft(X, dims, norm='ortho'):
 
 def _to_device_dtype(x, device, dtype):
     if device is None:
-        device = x.device if isinstance(x, torch.Tensor) else 'cpu'
+        device = x.device if isinstance(x, torch.Tensor) else "cpu"
     if dtype is None:
         dtype = torch.float64  # match MATLAB double
     return device, dtype
@@ -556,7 +551,7 @@ def _tan_half_abs(w, eps=1e-12):
     s = torch.sin(half)
     # Where cos is near zero, use a very large value (approach infinity)
     # large but not inf to avoid NaNs downstream
-    large = torch.finfo(w.dtype).max**0.5
+    large = torch.finfo(w.dtype).max ** 0.5
     t = torch.where(c.abs() < eps, torch.sign(s) * large, s / c)
     return t.abs()
 
@@ -565,7 +560,7 @@ def butterworth_mask_1d(
     N,
     fc,
     order,
-    btype='low',
+    btype="low",
     shifted=False,
     device=None,
     dtype=None,
@@ -583,7 +578,7 @@ def butterworth_mask_1d(
     assert isinstance(N, int) and N >= 2
     assert isinstance(order, int) and order >= 1
     btype = btype.lower()
-    if btype in ('low', 'high'):
+    if btype in ("low", "high"):
         fc = float(fc)
         assert 0.0 < fc < 0.5
     else:
@@ -593,45 +588,41 @@ def butterworth_mask_1d(
         fc = (f1, f2)
 
     device, dtype = _to_device_dtype(torch.empty(0), device, dtype)
-    w = _omega_grid_1d(N, shifted=shifted, device=device,
-                       dtype=dtype)  # 0..2π (or centered)
+    w = _omega_grid_1d(N, shifted=shifted, device=device, dtype=dtype)  # 0..2π (or centered)
     # Bilinear mapping (prewarped): Ω = 2 * tan(ω/2)
     Om = 2.0 * _tan_half_abs(w)  # analog rad/sec (normalized T=1)
 
-    if btype == 'low':
+    if btype == "low":
         # Prewarp analog cutoff: Ωc = 2*tan(π*fc)
         Oc = 2.0 * math.tan(math.pi * fc)
         ratio = (Om / Oc).clamp_min(0)
         mag = 1.0 / torch.sqrt(1.0 + ratio.pow(2 * order))
-    elif btype == 'high':
+    elif btype == "high":
         Oc = 2.0 * math.tan(math.pi * fc)
         # Handle Om=0 => magnitude=0
-        ratio = torch.where(Om > 0, (Oc / Om),
-                            torch.full_like(Om, float('inf')))
+        ratio = torch.where(Om > 0, (Oc / Om), torch.full_like(Om, float("inf")))
         mag = 1.0 / torch.sqrt(1.0 + ratio.pow(2 * order))
-    elif btype == 'bandpass':
+    elif btype == "bandpass":
         f1, f2 = fc
         O1 = 2.0 * math.tan(math.pi * f1)
         O2 = 2.0 * math.tan(math.pi * f2)
         B = O2 - O1
         O0 = math.sqrt(O1 * O2)
         # D(Ω) = (Ω^2 - Ω0^2)/(B*Ω)
-        denom = (B * Om)
+        denom = B * Om
         # denom=0 at Om=0 -> D=inf, magnitude=0
-        D = torch.where(denom != 0, (Om.pow(2) - O0**2) /
-                        denom, torch.full_like(Om, float('inf')))
+        D = torch.where(denom != 0, (Om.pow(2) - O0**2) / denom, torch.full_like(Om, float("inf")))
         mag = 1.0 / torch.sqrt(1.0 + D.abs().pow(2 * order))
-    elif btype in ('stop', 'bandstop', 'bandreject'):
+    elif btype in ("stop", "bandstop", "bandreject"):
         f1, f2 = fc
         O1 = 2.0 * math.tan(math.pi * f1)
         O2 = 2.0 * math.tan(math.pi * f2)
         B = O2 - O1
         O0 = math.sqrt(O1 * O2)
         # D(Ω) = (B*Ω)/(Ω^2 - Ω0^2)
-        denom = (Om.pow(2) - O0**2)
+        denom = Om.pow(2) - O0**2
         # denom=0 at Om=O0 -> D=inf, magnitude=0
-        D = torch.where(denom != 0, (B * Om) / denom,
-                        torch.full_like(Om, float('inf')))
+        D = torch.where(denom != 0, (B * Om) / denom, torch.full_like(Om, float("inf")))
         mag = 1.0 / torch.sqrt(1.0 + D.abs().pow(2 * order))
     else:
         raise ValueError("btype must be 'low', 'high', 'bandpass', or 'stop'.")
@@ -643,7 +634,7 @@ def butterworth_mask_2d_separable(
     shape,
     fc,
     order,
-    btype='low',
+    btype="low",
     shifted=False,
     device=None,
     dtype=None,
@@ -661,7 +652,7 @@ def butterworth_mask_2d_separable(
     device, dtype = _to_device_dtype(torch.empty(0), device, dtype)
 
     # Normalize fc/order to per-axis tuples
-    if btype in ('low', 'high'):
+    if btype in ("low", "high"):
         if not isinstance(fc, (list, tuple)):
             fcy = fcx = fc
         else:
@@ -680,10 +671,8 @@ def butterworth_mask_2d_separable(
     else:
         oy = ox = int(order)
 
-    Hy = butterworth_mask_1d(M, fcy, oy, btype=btype,
-                             shifted=shifted, device=device, dtype=dtype)
-    Hx = butterworth_mask_1d(N, fcx, ox, btype=btype,
-                             shifted=shifted, device=device, dtype=dtype)
+    Hy = butterworth_mask_1d(M, fcy, oy, btype=btype, shifted=shifted, device=device, dtype=dtype)
+    Hx = butterworth_mask_1d(N, fcx, ox, btype=btype, shifted=shifted, device=device, dtype=dtype)
 
     # Outer product to build separable 2D mask
     H2 = Hy.reshape(M, 1) * Hx.reshape(1, N)
@@ -702,7 +691,7 @@ def _freqvec_norm(
     - shifted=True: DC at center (fftshift layout)
     """
     if device is None:
-        device = 'cpu'
+        device = "cpu"
     if dtype is None:
         dtype = torch.float64
     k = torch.arange(N, device=device, dtype=dtype)
@@ -725,15 +714,12 @@ def _radial_frequency_nd(
     Returns R with shape 'shape'.
     """
     if device is None:
-        device = 'cpu'
+        device = "cpu"
     if dtype is None:
         dtype = torch.float64
-    grids = [
-        _freqvec_norm(N, shifted=shifted, device=device, dtype=dtype)
-        for N in shape
-    ]
+    grids = [_freqvec_norm(N, shifted=shifted, device=device, dtype=dtype) for N in shape]
     # list of tensors, each shape = shape
-    meshes = torch.meshgrid(*grids, indexing='ij')
+    meshes = torch.meshgrid(*grids, indexing="ij")
     R2 = torch.zeros(shape, dtype=dtype, device=device)
     for g in meshes:
         R2 = R2 + g**2
@@ -745,12 +731,12 @@ def butterworth_nd(
     shape: Sequence[int],
     cutoff: Union[float, Tuple[float, float]],
     order: int,
-    btype: str = 'low',
+    btype: str = "low",
     shifted: bool = False,
     device=None,
     dtype=None,
 ):
-    """ Isotropic N-D Butterworth mask (low/high/bandpass/bandstop).
+    """Isotropic N-D Butterworth mask (low/high/bandpass/bandstop).
     Args:
     shape: iterable of ints, e.g., (H, W) or (D, H, W) ...
     cutoff:
@@ -764,12 +750,11 @@ def butterworth_nd(
     Returns:
     H: tensor with shape 'shape', values in [0, 1].
     """
-    assert len(shape) >= 1 and all(
-        int(s) >= 1 for s in shape), "Invalid shape."
+    assert len(shape) >= 1 and all(int(s) >= 1 for s in shape), "Invalid shape."
     order = int(order)
     assert order >= 1, "order must be >= 1"
     btype = btype.lower()
-    if btype in ('low', 'high'):
+    if btype in ("low", "high"):
         D0 = float(cutoff)
         # assert 0.0 < D0 <= 0.5, "cutoff must be in (0, 0.5]"
     else:
@@ -779,50 +764,46 @@ def butterworth_nd(
         D0 = math.sqrt(D1 * D2)
 
     if device is None:
-        device = 'cpu'
+        device = "cpu"
     if dtype is None:
         dtype = torch.float64
 
     R = _radial_frequency_nd(
-        tuple(int(s) for s in shape),
-        shifted=shifted, device=device, dtype=dtype)
+        tuple(int(s) for s in shape), shifted=shifted, device=device, dtype=dtype
+    )
     eps = torch.finfo(dtype).eps
     # print(f"{R = }")
 
-    if btype == 'low':
+    if btype == "low":
         # H = 1 / (1 + (R/D0)^(2n))
         ratio = (R / D0).clamp_min(0)
         H = 1.0 / (1.0 + ratio.pow(2 * order))
 
-    elif btype == 'high':
+    elif btype == "high":
         # H = 1 / (1 + (D0/R)^(2n)), H(DC)=0
         # avoid divide-by-zero at R=0
-        safe_R = torch.where(R > 0, R, torch.tensor(
-            1.0, device=device, dtype=dtype))  # dummy
-        ratio = (D0 / safe_R)
+        safe_R = torch.where(R > 0, R, torch.tensor(1.0, device=device, dtype=dtype))  # dummy
+        ratio = D0 / safe_R
         H = 1.0 / (1.0 + ratio.pow(2 * order))
         # enforce DC = 0
         H = torch.where(R > 0, H, torch.zeros_like(H))
 
-    elif btype == 'bandpass':
+    elif btype == "bandpass":
         # D = (R^2 - D0^2) / (B*R); H = 1 / (1 + |D|^(2n))
         # Handle R=0 -> D=inf -> H=0
         denom = B * R
-        D = torch.where(denom != 0, (R.pow(2) - D0**2) / denom,
-                        torch.full_like(R, float('inf')))
+        D = torch.where(denom != 0, (R.pow(2) - D0**2) / denom, torch.full_like(R, float("inf")))
         H = 1.0 / (1.0 + D.abs().pow(2 * order))
 
-    elif btype in ('bandstop', 'stop', 'bandreject'):
+    elif btype in ("bandstop", "stop", "bandreject"):
         # D = (B*R) / (R^2 - D0^2); H = 1 / (1 + |D|^(2n))
         # Handle R^2 - D0^2 = 0 -> D=inf -> H=0 (deep notch at R=D0)
-        denom = (R.pow(2) - D0**2)
-        D = torch.where(denom != 0, (B * R) / denom,
-                        torch.full_like(R, float('inf')))
+        denom = R.pow(2) - D0**2
+        D = torch.where(denom != 0, (B * R) / denom, torch.full_like(R, float("inf")))
         H = 1.0 / (1.0 + D.abs().pow(2 * order))
 
     else:
-        raise ValueError(
-            "btype must be 'low', 'high', 'bandpass', or 'bandstop'.")
+        raise ValueError("btype must be 'low', 'high', 'bandpass', or 'bandstop'.")
 
     return H
 
@@ -836,13 +817,13 @@ def butterworth_low_pass_filter(
     device=None,
     dtype=None,
 ):
-    '''
+    """
     Applies a Butterworth low-pass filter to the input tensor.
 
     the dims specify which dim should be perform filtering
 
     return filtered tensor
-    '''
+    """
     if not isinstance(dims, (list, tuple)):
         dims = (dims,)
     ndims_total = tensor.ndim
@@ -850,8 +831,7 @@ def butterworth_low_pass_filter(
     norm_dims = _normalize_dims(dims, ndim=ndims_total)
 
     original_dtype = tensor.dtype
-    work_dtype = dtype or (
-        tensor.dtype if torch.is_floating_point(tensor) else torch.float32)
+    work_dtype = dtype or (tensor.dtype if torch.is_floating_point(tensor) else torch.float32)
     if work_dtype == torch.bfloat16 or work_dtype == torch.float16:
         work_dtype = torch.float32
     device = device or tensor.device
@@ -868,7 +848,7 @@ def butterworth_low_pass_filter(
         shape=shape_subset,
         cutoff=cutoff,
         order=order,
-        btype='low',
+        btype="low",
         shifted=shifted,
         device=device,
         dtype=work_dtype,
@@ -995,14 +975,14 @@ if __name__ == "__main__":
     # H1 = butterworth_mask_1d(16, 0.125, 4, btype='low', shifted=True)
     # print(f"{H1 = }")
 
-    H2 = butterworth_nd([30, 52], 1.0, 4, btype='low', shifted=True)
+    H2 = butterworth_nd([30, 52], 1.0, 4, btype="low", shifted=True)
     print(f"{H2 = }")
 
     # ---- Planar wave demo with Butterworth low-pass filtering ----
     def demo_planar_wave():
         # Generate 2D planar wave: low-frequency + added high-frequency component
         H, W = 128, 128
-        device = 'cpu'
+        device = "cpu"
         y = torch.arange(H, device=device).view(H, 1)
         x = torch.arange(W, device=device).view(1, W)
 
@@ -1033,6 +1013,8 @@ if __name__ == "__main__":
         print(f"mse_after ={mse_after.item():.6e}")
         print(f"residual_energy_ratio={residual_energy_ratio.item():.4%}")
         # Quick sanity: high frequency suppression (should be << 1)
-        assert mse_after < mse_before, "Filtering did not reduce error to low-frequency ground truth."
+        assert (
+            mse_after < mse_before
+        ), "Filtering did not reduce error to low-frequency ground truth."
 
     demo_planar_wave()

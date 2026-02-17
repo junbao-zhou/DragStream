@@ -52,9 +52,7 @@ class VPredLoss(DenoisingLoss):
         timestep: torch.Tensor,
         **kwargs
     ) -> torch.Tensor:
-        weights = 1 / (
-            1 - alphas_cumprod[timestep].reshape(*timestep.shape, 1, 1, 1)
-        )
+        weights = 1 / (1 - alphas_cumprod[timestep].reshape(*timestep.shape, 1, 1, 1))
         return torch.mean(weights * (x - x_pred) ** 2)
 
 

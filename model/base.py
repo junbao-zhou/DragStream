@@ -22,9 +22,7 @@ class BaseModel(nn.Module):
         self.args = args
         self.dtype = torch.bfloat16 if args.mixed_precision else torch.float32
         if hasattr(args, "denoising_step_list"):
-            self.denoising_step_list = torch.tensor(
-                args.denoising_step_list, dtype=torch.long
-            )
+            self.denoising_step_list = torch.tensor(args.denoising_step_list, dtype=torch.long)
             if args.warp_denoising_step:
                 timesteps = torch.cat(
                     (
@@ -32,27 +30,19 @@ class BaseModel(nn.Module):
                         torch.tensor([0], dtype=torch.float32),
                     )
                 )
-                self.denoising_step_list = timesteps[
-                    1000 - self.denoising_step_list
-                ]
+                self.denoising_step_list = timesteps[1000 - self.denoising_step_list]
 
     def _initialize_models(self, args, device):
         self.real_model_name = getattr(args, "real_name", "Wan2.1-T2V-1.3B")
         self.fake_model_name = getattr(args, "fake_name", "Wan2.1-T2V-1.3B")
 
-        self.generator = WanDiffusionWrapper(
-            **getattr(args, "model_kwargs", {}), is_causal=True
-        )
+        self.generator = WanDiffusionWrapper(**getattr(args, "model_kwargs", {}), is_causal=True)
         self.generator.model.requires_grad_(True)
 
-        self.real_score = WanDiffusionWrapper(
-            model_name=self.real_model_name, is_causal=False
-        )
+        self.real_score = WanDiffusionWrapper(model_name=self.real_model_name, is_causal=False)
         self.real_score.model.requires_grad_(False)
 
-        self.fake_score = WanDiffusionWrapper(
-            model_name=self.fake_model_name, is_causal=False
-        )
+        self.fake_score = WanDiffusionWrapper(model_name=self.fake_model_name, is_causal=False)
         self.fake_score.model.requires_grad_(True)
 
         self.text_encoder = WanTextEncoder()
@@ -107,13 +97,9 @@ class BaseModel(nn.Module):
                 timestep_from_second = timestep_from_second.reshape(
                     timestep_from_second.shape[0], -1
                 )
-                timestep = torch.cat(
-                    [timestep[:, 0:1], timestep_from_second], dim=1
-                )
+                timestep = torch.cat([timestep[:, 0:1], timestep_from_second], dim=1)
             else:
-                timestep = timestep.reshape(
-                    timestep.shape[0], -1, num_frame_per_block
-                )
+                timestep = timestep.reshape(timestep.shape[0], -1, num_frame_per_block)
                 timestep[:, :, 1:] = timestep[:, :, 0:1]
                 timestep = timestep.reshape(timestep.shape[0], -1)
             return timestep
@@ -126,9 +112,7 @@ class SelfForcingModel(BaseModel):
         device,
     ):
         super().__init__(args, device)
-        self.denoising_loss_func = get_denoising_loss(
-            args.denoising_loss_type
-        )()
+        self.denoising_loss_func = get_denoising_loss(args.denoising_loss_type)()
 
     def _run_generator(
         self,
@@ -190,9 +174,7 @@ class SelfForcingModel(BaseModel):
 
         pred_image_or_video, denoised_timestep_from, denoised_timestep_to = (
             self._consistency_backward_simulation(
-                noise=torch.randn(
-                    noise_shape, device=self.device, dtype=self.dtype
-                ),
+                noise=torch.randn(noise_shape, device=self.device, dtype=self.dtype),
                 **conditional_dict,
             )
         )
@@ -215,9 +197,7 @@ class SelfForcingModel(BaseModel):
 
         if num_generated_frames != min_num_frames:
             # Currently, we do not use gradient for the first chunk, since it contains image latents
-            gradient_mask = torch.ones_like(
-                pred_image_or_video_last_21, dtype=torch.bool
-            )
+            gradient_mask = torch.ones_like(pred_image_or_video_last_21, dtype=torch.bool)
             if self.args.independent_first_frame:
                 gradient_mask[:, :1] = False
             else:
@@ -253,9 +233,7 @@ class SelfForcingModel(BaseModel):
         if self.inference_pipeline is None:
             self._initialize_inference_pipeline()
 
-        return self.inference_pipeline.inference_with_trajectory(
-            noise=noise, **conditional_dict
-        )
+        return self.inference_pipeline.inference_with_trajectory(noise=noise, **conditional_dict)
 
     def _initialize_inference_pipeline(
         self,

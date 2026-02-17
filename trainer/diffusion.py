@@ -81,17 +81,11 @@ class Trainer:
         if not config.no_visualize or config.load_raw_video:
             self.model.vae = self.model.vae.to(
                 device=self.device,
-                dtype=(
-                    torch.bfloat16 if config.mixed_precision else torch.float32
-                ),
+                dtype=(torch.bfloat16 if config.mixed_precision else torch.float32),
             )
 
         self.generator_optimizer = torch.optim.AdamW(
-            [
-                param
-                for param in self.model.generator.parameters()
-                if param.requires_grad
-            ],
+            [param for param in self.model.generator.parameters() if param.requires_grad],
             lr=config.lr,
             betas=(config.beta1, config.beta2),
             weight_decay=config.weight_decay,
@@ -131,9 +125,7 @@ class Trainer:
         self.generator_ema = None
         if (ema_weight is not None) and (ema_weight > 0.0):
             print(f"Setting up EMA with weight {ema_weight}")
-            self.generator_ema = EMA_FSDP(
-                self.model.generator, decay=ema_weight
-            )
+            self.generator_ema = EMA_FSDP(self.model.generator, decay=ema_weight)
 
         ##############################################################################################################
         # 7. (If resuming) Load the model and optimizer, lr_scheduler, ema's statedicts
@@ -173,9 +165,7 @@ class Trainer:
 
         if self.is_main_process:
             os.makedirs(
-                os.path.join(
-                    self.output_path, f"checkpoint_model_{self.step:06d}"
-                ),
+                os.path.join(self.output_path, f"checkpoint_model_{self.step:06d}"),
                 exist_ok=True,
             )
             torch.save(
@@ -207,9 +197,7 @@ class Trainer:
         # Step 1: Get the next batch of text prompts
         text_prompts = batch["prompts"]
         if not self.config.load_raw_video:  # precomputed latent
-            clean_latent = batch["ode_latent"][:, -1].to(
-                device=self.device, dtype=self.dtype
-            )
+            clean_latent = batch["ode_latent"][:, -1].to(device=self.device, dtype=self.dtype)
         else:  # encode raw video to latent
             frames = batch["frames"].to(device=self.device, dtype=self.dtype)
             with torch.no_grad():
@@ -227,20 +215,14 @@ class Trainer:
 
         # Step 2: Extract the conditional infos
         with torch.no_grad():
-            conditional_dict = self.model.text_encoder(
-                text_prompts=text_prompts
-            )
+            conditional_dict = self.model.text_encoder(text_prompts=text_prompts)
 
             if not getattr(self, "unconditional_dict", None):
                 unconditional_dict = self.model.text_encoder(
                     text_prompts=[self.config.negative_prompt] * batch_size
                 )
-                unconditional_dict = {
-                    k: v.detach() for k, v in unconditional_dict.items()
-                }
-                self.unconditional_dict = (
-                    unconditional_dict  # cache the unconditional_dict
-                )
+                unconditional_dict = {k: v.detach() for k, v in unconditional_dict.items()}
+                self.unconditional_dict = unconditional_dict  # cache the unconditional_dict
             else:
                 unconditional_dict = self.unconditional_dict
 
@@ -254,9 +236,7 @@ class Trainer:
         )
         self.generator_optimizer.zero_grad()
         generator_loss.backward()
-        generator_grad_norm = self.model.generator.clip_grad_norm_(
-            self.max_grad_norm
-        )
+        generator_grad_norm = self.model.generator.clip_grad_norm_(self.max_grad_norm)
         self.generator_optimizer.step()
 
         # Increment the step since we finished gradient update
@@ -287,9 +267,7 @@ class Trainer:
         image=None,
     ):
         batch_size = len(prompts)
-        sampled_noise = torch.randn(
-            [batch_size, 21, 16, 60, 104], device="cuda", dtype=self.dtype
-        )
+        sampled_noise = torch.randn([batch_size, 21, 16, 60, 104], device="cuda", dtype=self.dtype)
         video, _ = pipeline.inference(
             noise=sampled_noise, text_prompts=prompts, return_latents=True
         )
@@ -302,9 +280,7 @@ class Trainer:
         while True:
             batch = next(self.dataloader)
             self.train_one_step(batch)
-            if (
-                not self.config.no_save
-            ) and self.step % self.config.log_iters == 0:
+            if (not self.config.no_save) and self.step % self.config.log_iters == 0:
                 torch.cuda.empty_cache()
                 self.save()
                 torch.cuda.empty_cache()
@@ -317,10 +293,7 @@ class Trainer:
                 else:
                     if not self.disable_wandb:
                         wandb.log(
-                            {
-                                "per iteration time": current_time
-                                - self.previous_time
-                            },
+                            {"per iteration time": current_time - self.previous_time},
                             step=self.step,
                         )
                     self.previous_time = current_time

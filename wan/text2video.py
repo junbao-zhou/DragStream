@@ -98,9 +98,7 @@ class WanT2V:
             )
 
             for block in self.model.blocks:
-                block.self_attn.forward = types.MethodType(
-                    usp_attn_forward, block.self_attn
-                )
+                block.self_attn.forward = types.MethodType(usp_attn_forward, block.self_attn)
             self.model.forward = types.MethodType(usp_dit_forward, self.model)
             self.sp_size = get_sequence_parallel_world_size()
         else:
@@ -225,9 +223,7 @@ class WanT2V:
                     shift=1,
                     use_dynamic_shifting=False,
                 )
-                sample_scheduler.set_timesteps(
-                    sampling_steps, device=self.device, shift=shift
-                )
+                sample_scheduler.set_timesteps(sampling_steps, device=self.device, shift=shift)
                 timesteps = sample_scheduler.timesteps
             elif sample_solver == "dpm++":
                 sample_scheduler = FlowDPMSolverMultistepScheduler(
@@ -255,16 +251,10 @@ class WanT2V:
                 timestep = torch.stack(timestep)
 
                 self.model.to(self.device)
-                noise_pred_cond = self.model(
-                    latent_model_input, t=timestep, **arg_c
-                )[0]
-                noise_pred_uncond = self.model(
-                    latent_model_input, t=timestep, **arg_null
-                )[0]
+                noise_pred_cond = self.model(latent_model_input, t=timestep, **arg_c)[0]
+                noise_pred_uncond = self.model(latent_model_input, t=timestep, **arg_null)[0]
 
-                noise_pred = noise_pred_uncond + guide_scale * (
-                    noise_pred_cond - noise_pred_uncond
-                )
+                noise_pred = noise_pred_uncond + guide_scale * (noise_pred_cond - noise_pred_uncond)
 
                 temp_x0 = sample_scheduler.step(
                     noise_pred.unsqueeze(0),

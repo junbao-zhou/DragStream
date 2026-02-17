@@ -37,9 +37,7 @@ inputs = [dummy_input, is_first_frame, *dummy_cache_input]
 # ─────────────────────────────────────────────────────────
 model = VAEDecoderWrapperSingle().half().cuda().eval()
 
-vae_state_dict = torch.load(
-    "wan_models/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth", map_location="cpu"
-)
+vae_state_dict = torch.load("wan_models/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth", map_location="cpu")
 decoder_state_dict = {}
 for key, value in vae_state_dict.items():
     if "decoder." in key or "conv2" in key:
@@ -68,9 +66,7 @@ print(f"✅  ONNX graph saved to {onnx_path.resolve()}")
 try:
     import onnxruntime as ort
 
-    sess = ort.InferenceSession(
-        onnx_path.as_posix(), providers=["CUDAExecutionProvider"]
-    )
+    sess = ort.InferenceSession(onnx_path.as_posix(), providers=["CUDAExecutionProvider"])
     ort_inputs = {n: t.cpu().numpy() for n, t in zip(all_inputs_names, inputs)}
     _ = sess.run(None, ort_inputs)
     print("✅  ONNX graph is executable")
@@ -82,9 +78,7 @@ except Exception as e:
 # ─────────────────────────────────────────────────────────
 TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
 builder = trt.Builder(TRT_LOGGER)
-network = builder.create_network(
-    1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
-)
+network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
 parser = trt.OnnxParser(network, TRT_LOGGER)
 
 with open(onnx_path, "rb") as f:
@@ -191,9 +185,7 @@ class VAECalibrator(trt.IInt8EntropyCalibrator2):
             with torch.inference_mode():
                 outputs = model(*inputs)
             latent = data["ode_latent"][0][:, i + 1 : i + 2]
-            is_first_frame = torch.tensor(
-                [0.0], device="cuda", dtype=torch.float16
-            )
+            is_first_frame = torch.tensor([0.0], device="cuda", dtype=torch.float16)
             feat_cache = outputs[1:]
 
         # -------- ensure context is current --------

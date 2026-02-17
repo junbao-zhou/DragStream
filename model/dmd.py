@@ -19,17 +19,13 @@ class DMD(SelfForcingModel):
         """
         super().__init__(args, device)
         self.num_frame_per_block = getattr(args, "num_frame_per_block", 1)
-        self.same_step_across_blocks = getattr(
-            args, "same_step_across_blocks", True
-        )
+        self.same_step_across_blocks = getattr(args, "same_step_across_blocks", True)
         self.num_training_frames = getattr(args, "num_training_frames", 21)
 
         if self.num_frame_per_block > 1:
             self.generator.model.num_frame_per_block = self.num_frame_per_block
 
-        self.independent_first_frame = getattr(
-            args, "independent_first_frame", False
-        )
+        self.independent_first_frame = getattr(args, "independent_first_frame", False)
         if self.independent_first_frame:
             self.generator.model.independent_first_frame = True
         if args.gradient_checkpointing:
@@ -55,9 +51,7 @@ class DMD(SelfForcingModel):
         self.min_score_timestep = getattr(args, "min_score_timestep", 0)
 
         if getattr(self.scheduler, "alphas_cumprod", None) is not None:
-            self.scheduler.alphas_cumprod = self.scheduler.alphas_cumprod.to(
-                device
-            )
+            self.scheduler.alphas_cumprod = self.scheduler.alphas_cumprod.to(device)
         else:
             self.scheduler.alphas_cumprod = None
 
@@ -98,8 +92,7 @@ class DMD(SelfForcingModel):
             )
             pred_fake_image = (
                 pred_fake_image_cond
-                + (pred_fake_image_cond - pred_fake_image_uncond)
-                * self.fake_guidance_scale
+                + (pred_fake_image_cond - pred_fake_image_uncond) * self.fake_guidance_scale
             )
         else:
             pred_fake_image = pred_fake_image_cond
@@ -121,8 +114,7 @@ class DMD(SelfForcingModel):
 
         pred_real_image = (
             pred_real_image_cond
-            + (pred_real_image_cond - pred_real_image_uncond)
-            * self.real_guidance_scale
+            + (pred_real_image_cond - pred_real_image_uncond) * self.real_guidance_scale
         )
 
         # Step 3: Compute the DMD gradient (DMD paper eq. 7).
@@ -219,9 +211,7 @@ class DMD(SelfForcingModel):
         if gradient_mask is not None:
             dmd_loss = 0.5 * F.mse_loss(
                 original_latent.double()[gradient_mask],
-                (original_latent.double() - grad.double()).detach()[
-                    gradient_mask
-                ],
+                (original_latent.double() - grad.double()).detach()[gradient_mask],
                 reduction="mean",
             )
         else:
@@ -303,12 +293,10 @@ class DMD(SelfForcingModel):
 
         # Step 1: Run generator on backward simulated noisy input
         with torch.no_grad():
-            generated_image, _, denoised_timestep_from, denoised_timestep_to = (
-                self._run_generator(
-                    image_or_video_shape=image_or_video_shape,
-                    conditional_dict=conditional_dict,
-                    initial_latent=initial_latent,
-                )
+            generated_image, _, denoised_timestep_from, denoised_timestep_to = self._run_generator(
+                image_or_video_shape=image_or_video_shape,
+                conditional_dict=conditional_dict,
+                initial_latent=initial_latent,
             )
 
         # Step 2: Compute the fake prediction

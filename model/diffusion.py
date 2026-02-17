@@ -18,9 +18,7 @@ class CausalDiffusion(BaseModel):
         self.num_frame_per_block = getattr(args, "num_frame_per_block", 1)
         if self.num_frame_per_block > 1:
             self.generator.model.num_frame_per_block = self.num_frame_per_block
-        self.independent_first_frame = getattr(
-            args, "independent_first_frame", False
-        )
+        self.independent_first_frame = getattr(args, "independent_first_frame", False)
         if self.independent_first_frame:
             self.generator.model.independent_first_frame = True
 
@@ -35,9 +33,7 @@ class CausalDiffusion(BaseModel):
         self.timestep_shift = getattr(args, "timestep_shift", 1.0)
         self.teacher_forcing = getattr(args, "teacher_forcing", False)
         # Noise augmentation in teacher forcing, we add small noise to clean context latents
-        self.noise_augmentation_max_timestep = getattr(
-            args, "noise_augmentation_max_timestep", 0
-        )
+        self.noise_augmentation_max_timestep = getattr(args, "noise_augmentation_max_timestep", 0)
 
     def _initialize_models(self, args):
         self.generator = WanDiffusionWrapper(
@@ -86,17 +82,13 @@ class CausalDiffusion(BaseModel):
             self.num_frame_per_block,
             uniform_timestep=False,
         )
-        timestep = self.scheduler.timesteps[index].to(
-            dtype=self.dtype, device=self.device
-        )
+        timestep = self.scheduler.timesteps[index].to(dtype=self.dtype, device=self.device)
         noisy_latents = self.scheduler.add_noise(
             clean_latent.flatten(0, 1),
             noise.flatten(0, 1),
             timestep.flatten(0, 1),
         ).unflatten(0, (batch_size, num_frame))
-        training_target = self.scheduler.training_target(
-            clean_latent, noise, timestep
-        )
+        training_target = self.scheduler.training_target(clean_latent, noise, timestep)
 
         # Step 3: Noise augmentation, also add small noise to clean context latents
         if self.noise_augmentation_max_timestep > 0:
@@ -132,9 +124,7 @@ class CausalDiffusion(BaseModel):
         loss = torch.nn.functional.mse_loss(
             flow_pred.float(), training_target.float(), reduction="none"
         ).mean(dim=(2, 3, 4))
-        loss = loss * self.scheduler.training_weight(timestep).unflatten(
-            0, (batch_size, num_frame)
-        )
+        loss = loss * self.scheduler.training_weight(timestep).unflatten(0, (batch_size, num_frame))
         loss = loss.mean()
 
         log_dict = {"x0": clean_latent.detach(), "x0_pred": x0_pred.detach()}

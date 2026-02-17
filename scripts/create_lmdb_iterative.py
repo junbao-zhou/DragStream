@@ -16,21 +16,15 @@ def main():
     video's ODE trajectories.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--data_path", type=str, required=True, help="path to ode pairs"
-    )
-    parser.add_argument(
-        "--lmdb_path", type=str, required=True, help="path to lmdb"
-    )
+    parser.add_argument("--data_path", type=str, required=True, help="path to ode pairs")
+    parser.add_argument("--lmdb_path", type=str, required=True, help="path to lmdb")
 
     args = parser.parse_args()
 
     all_files = sorted(glob.glob(os.path.join(args.data_path, "*.pt")))
 
     # figure out the maximum map size needed
-    total_array_size = (
-        5000000000000  # adapt to your need, set to 5TB by default
-    )
+    total_array_size = 5000000000000  # adapt to your need, set to 5TB by default
 
     env = lmdb.open(args.lmdb_path, map_size=total_array_size * 2)
 

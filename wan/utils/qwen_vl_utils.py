@@ -84,9 +84,7 @@ def smart_resize(
     return h_bar, w_bar
 
 
-def fetch_image(
-    ele: dict[str, str | Image.Image], size_factor: int = IMAGE_FACTOR
-) -> Image.Image:
+def fetch_image(ele: dict[str, str | Image.Image], size_factor: int = IMAGE_FACTOR) -> Image.Image:
     if "image" in ele:
         image = ele["image"]
     else:
@@ -156,16 +154,12 @@ def smart_nframes(
     Returns:
         int: the number of frames for video used for model inputs.
     """
-    assert not (
-        "fps" in ele and "nframes" in ele
-    ), "Only accept either `fps` or `nframes`"
+    assert not ("fps" in ele and "nframes" in ele), "Only accept either `fps` or `nframes`"
     if "nframes" in ele:
         nframes = round_by_factor(ele["nframes"], FRAME_FACTOR)
     else:
         fps = ele.get("fps", FPS)
-        min_frames = ceil_by_factor(
-            ele.get("min_frames", FPS_MIN_FRAMES), FRAME_FACTOR
-        )
+        min_frames = ceil_by_factor(ele.get("min_frames", FPS_MIN_FRAMES), FRAME_FACTOR)
         max_frames = floor_by_factor(
             ele.get("max_frames", min(FPS_MAX_FRAMES, total_frames)),
             FRAME_FACTOR,
@@ -247,9 +241,7 @@ def _read_video_decord(
     vr = decord.VideoReader(video_path)
     # TODO: support start_pts and end_pts
     if "video_start" in ele or "video_end" in ele:
-        raise NotImplementedError(
-            "not support start_pts and end_pts in decord for now."
-        )
+        raise NotImplementedError("not support start_pts and end_pts in decord for now.")
     total_frames, video_fps = len(vr), vr.get_avg_fps()
     logger.info(
         f"decord:  {video_path=}, {total_frames=}, {video_fps=}, time={time.time() - st:.3f}s"
@@ -284,9 +276,7 @@ def get_video_reader_backend() -> str:
     return video_reader_backend
 
 
-def fetch_video(
-    ele: dict, image_factor: int = IMAGE_FACTOR
-) -> torch.Tensor | list[Image.Image]:
+def fetch_video(ele: dict, image_factor: int = IMAGE_FACTOR) -> torch.Tensor | list[Image.Image]:
     if isinstance(ele["video"], str):
         video_reader_backend = get_video_reader_backend()
         video = VIDEO_READER_BACKENDS[video_reader_backend](ele)
@@ -360,9 +350,7 @@ def extract_vision_info(
 
 def process_vision_info(
     conversations: list[dict] | list[list[dict]],
-) -> tuple[
-    list[Image.Image] | None, list[torch.Tensor | list[Image.Image]] | None
-]:
+) -> tuple[list[Image.Image] | None, list[torch.Tensor | list[Image.Image]] | None]:
     vision_infos = extract_vision_info(conversations)
     # Read images or videos
     image_inputs = []

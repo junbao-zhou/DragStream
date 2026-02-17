@@ -49,9 +49,7 @@ class ODERegressionLMDBDataset(Dataset):
         data_path: str,
         max_pair: int = int(1e8),
     ):
-        self.env = lmdb.open(
-            data_path, readonly=True, lock=False, readahead=False, meminit=False
-        )
+        self.env = lmdb.open(data_path, readonly=True, lock=False, readahead=False, meminit=False)
 
         self.latents_shape = get_array_shape_from_lmdb(self.env, "latents")
         self.max_pair = max_pair
@@ -95,16 +93,12 @@ class ShardingLMDBDataset(Dataset):
 
         for fname in sorted(os.listdir(data_path)):
             path = os.path.join(data_path, fname)
-            env = lmdb.open(
-                path, readonly=True, lock=False, readahead=False, meminit=False
-            )
+            env = lmdb.open(path, readonly=True, lock=False, readahead=False, meminit=False)
             self.envs.append(env)
 
         self.latents_shape = [None] * len(self.envs)
         for shard_id, env in enumerate(self.envs):
-            self.latents_shape[shard_id] = get_array_shape_from_lmdb(
-                env, "latents"
-            )
+            self.latents_shape[shard_id] = get_array_shape_from_lmdb(env, "latents")
             for local_i in range(self.latents_shape[shard_id][0]):
                 self.index.append((shard_id, local_i))
 
@@ -139,9 +133,7 @@ class ShardingLMDBDataset(Dataset):
         if len(latents.shape) == 4:
             latents = latents[None, ...]
 
-        prompts = retrieve_row_from_lmdb(
-            self.envs[shard_id], "prompts", str, local_idx
-        )
+        prompts = retrieve_row_from_lmdb(self.envs[shard_id], "prompts", str, local_idx)
 
         return {
             "prompts": prompts,
@@ -181,17 +173,13 @@ class TextImagePairDataset(Dataset):
         # Use aspect ratio subfolder for images
         self.image_dir = data_dir / aspect_ratio
         if not self.image_dir.exists():
-            raise FileNotFoundError(
-                f"Image directory not found: {self.image_dir}"
-            )
+            raise FileNotFoundError(f"Image directory not found: {self.image_dir}")
 
         # Load metadata
         with open(metadata_path, "r") as f:
             self.metadata = json.load(f)
 
-        eval_first_n = (
-            eval_first_n if eval_first_n != -1 else len(self.metadata)
-        )
+        eval_first_n = eval_first_n if eval_first_n != -1 else len(self.metadata)
         self.metadata = self.metadata[:eval_first_n]
 
         # Verify all images exist
@@ -202,10 +190,7 @@ class TextImagePairDataset(Dataset):
 
         self.dummy_prompt = "DUMMY PROMPT"
         self.pre_pad_len = len(self.metadata)
-        if (
-            pad_to_multiple_of is not None
-            and len(self.metadata) % pad_to_multiple_of != 0
-        ):
+        if pad_to_multiple_of is not None and len(self.metadata) % pad_to_multiple_of != 0:
             # Duplicate the last entry
             self.metadata += [self.metadata[-1]] * (
                 pad_to_multiple_of - len(self.metadata) % pad_to_multiple_of

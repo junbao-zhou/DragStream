@@ -22,7 +22,8 @@ def shard_model(
         process_group=process_group,
         sharding_strategy=sharding_strategy,
         auto_wrap_policy=partial(
-            lambda_auto_wrap_policy, lambda_fn=lambda m: m in model.blocks
+            lambda_auto_wrap_policy,
+            lambda_fn=lambda m: m in model.blocks,
         ),
         mixed_precision=MixedPrecision(
             param_dtype=param_dtype,

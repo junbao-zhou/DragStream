@@ -19,9 +19,7 @@ def sinusoidal_embedding_1d(dim, position):
     position = position.type(torch.float64)
 
     # calculation
-    sinusoid = torch.outer(
-        position, torch.pow(10000, -torch.arange(half).to(position).div(half))
-    )
+    sinusoid = torch.outer(position, torch.pow(10000, -torch.arange(half).to(position).div(half)))
     x = torch.cat([torch.cos(sinusoid), torch.sin(sinusoid)], dim=1)
     return x
 
@@ -31,8 +29,7 @@ def rope_params(max_seq_len, dim, theta=10000):
     assert dim % 2 == 0
     freqs = torch.outer(
         torch.arange(max_seq_len),
-        1.0
-        / torch.pow(theta, torch.arange(0, dim, 2).to(torch.float64).div(dim)),
+        1.0 / torch.pow(theta, torch.arange(0, dim, 2).to(torch.float64).div(dim)),
     )
     freqs = torch.polar(torch.ones_like(freqs), freqs)
     return freqs
@@ -51,9 +48,7 @@ def rope_apply(x, grid_sizes, freqs):
         seq_len = f * h * w
 
         # precompute multipliers
-        x_i = torch.view_as_complex(
-            x[i, :seq_len].to(torch.float64).reshape(seq_len, n, -1, 2)
-        )
+        x_i = torch.view_as_complex(x[i, :seq_len].to(torch.float64).reshape(seq_len, n, -1, 2))
         freqs_i = torch.cat(
             [
                 freqs[0][:f].view(f, 1, 1, -1).expand(f, h, w, -1),
@@ -106,9 +101,7 @@ class WanLayerNorm(nn.LayerNorm):
 
 class WanSelfAttention(nn.Module):
 
-    def __init__(
-        self, dim, num_heads, window_size=(-1, -1), qk_norm=True, eps=1e-6
-    ):
+    def __init__(self, dim, num_heads, window_size=(-1, -1), qk_norm=True, eps=1e-6):
         assert dim % num_heads == 0
         super().__init__()
         self.dim = dim
@@ -226,9 +219,7 @@ class WanGanCrossAttention(WanSelfAttention):
 
 class WanI2VCrossAttention(WanSelfAttention):
 
-    def __init__(
-        self, dim, num_heads, window_size=(-1, -1), qk_norm=True, eps=1e-6
-    ):
+    def __init__(self, dim, num_heads, window_size=(-1, -1), qk_norm=True, eps=1e-6):
         super().__init__(dim, num_heads, window_size, qk_norm, eps)
 
         self.k_img = nn.Linear(dim, dim)
@@ -295,13 +286,9 @@ class WanAttentionBlock(nn.Module):
 
         # layers
         self.norm1 = WanLayerNorm(dim, eps)
-        self.self_attn = WanSelfAttention(
-            dim, num_heads, window_size, qk_norm, eps
-        )
+        self.self_attn = WanSelfAttention(dim, num_heads, window_size, qk_norm, eps)
         self.norm3 = (
-            WanLayerNorm(dim, eps, elementwise_affine=True)
-            if cross_attn_norm
-            else nn.Identity()
+            WanLayerNorm(dim, eps, elementwise_affine=True) if cross_attn_norm else nn.Identity()
         )
         self.cross_attn = WAN_CROSSATTENTION_CLASSES[cross_attn_type](
             dim, num_heads, (-1, -1), qk_norm, eps
@@ -340,9 +327,7 @@ class WanAttentionBlock(nn.Module):
         # assert e[0].dtype == torch.float32
 
         # self-attention
-        y = self.self_attn(
-            self.norm1(x) * (1 + e[1]) + e[0], seq_lens, grid_sizes, freqs
-        )
+        y = self.self_attn(self.norm1(x) * (1 + e[1]) + e[0], seq_lens, grid_sizes, freqs)
         # with amp.autocast(dtype=torch.float32):
         x = x + y * e[2]
 
@@ -384,9 +369,7 @@ class GanAttentionBlock(nn.Module):
         # self.self_attn = WanSelfAttention(dim, num_heads, window_size, qk_norm,
         #   eps)
         self.norm3 = (
-            WanLayerNorm(dim, eps, elementwise_affine=True)
-            if cross_attn_norm
-            else nn.Identity()
+            WanLayerNorm(dim, eps, elementwise_affine=True) if cross_attn_norm else nn.Identity()
         )
 
         self.norm2 = WanLayerNorm(dim, eps)
@@ -396,9 +379,7 @@ class GanAttentionBlock(nn.Module):
             nn.Linear(ffn_dim, dim),
         )
 
-        self.cross_attn = WanGanCrossAttention(
-            dim, num_heads, (-1, -1), qk_norm, eps
-        )
+        self.cross_attn = WanGanCrossAttention(dim, num_heads, (-1, -1), qk_norm, eps)
 
         # modulation
         # self.modulation = nn.Parameter(torch.randn(1, 6, dim) / dim**0.5)
@@ -496,9 +477,7 @@ class MLPProj(torch.nn.Module):
 class RegisterTokens(nn.Module):
     def __init__(self, num_registers: int, dim: int):
         super().__init__()
-        self.register_tokens = nn.Parameter(
-            torch.randn(num_registers, dim) * 0.02
-        )
+        self.register_tokens = nn.Parameter(torch.randn(num_registers, dim) * 0.02)
         self.rms_norm = WanRMSNorm(dim, eps=1e-6)
 
     def forward(self):
@@ -600,9 +579,7 @@ class WanModel(ModelMixin, ConfigMixin):
         self.local_attn_size = 21
 
         # embeddings
-        self.patch_embedding = nn.Conv3d(
-            in_dim, dim, kernel_size=patch_size, stride=patch_size
-        )
+        self.patch_embedding = nn.Conv3d(in_dim, dim, kernel_size=patch_size, stride=patch_size)
         self.text_embedding = nn.Sequential(
             nn.Linear(text_dim, dim),
             nn.GELU(approximate="tanh"),
@@ -615,9 +592,7 @@ class WanModel(ModelMixin, ConfigMixin):
         self.time_projection = nn.Sequential(nn.SiLU(), nn.Linear(dim, dim * 6))
 
         # blocks
-        cross_attn_type = (
-            "t2v_cross_attn" if model_type == "t2v" else "i2v_cross_attn"
-        )
+        cross_attn_type = "t2v_cross_attn" if model_type == "t2v" else "i2v_cross_attn"
         self.blocks = nn.ModuleList(
             [
                 WanAttentionBlock(
@@ -714,26 +689,17 @@ class WanModel(ModelMixin, ConfigMixin):
 
         # embeddings
         x = [self.patch_embedding(u.unsqueeze(0)) for u in x]
-        grid_sizes = torch.stack(
-            [torch.tensor(u.shape[2:], dtype=torch.long) for u in x]
-        )
+        grid_sizes = torch.stack([torch.tensor(u.shape[2:], dtype=torch.long) for u in x])
         x = [u.flatten(2).transpose(1, 2) for u in x]
         seq_lens = torch.tensor([u.size(1) for u in x], dtype=torch.long)
         assert seq_lens.max() <= seq_len
         x = torch.cat(
-            [
-                torch.cat(
-                    [u, u.new_zeros(1, seq_len - u.size(1), u.size(2))], dim=1
-                )
-                for u in x
-            ]
+            [torch.cat([u, u.new_zeros(1, seq_len - u.size(1), u.size(2))], dim=1) for u in x]
         )
 
         # time embeddings
         # with amp.autocast(dtype=torch.float32):
-        e = self.time_embedding(
-            sinusoidal_embedding_1d(self.freq_dim, t).type_as(x)
-        )
+        e = self.time_embedding(sinusoidal_embedding_1d(self.freq_dim, t).type_as(x))
         e0 = self.time_projection(e).unflatten(1, (6, self.dim))
         # assert e.dtype == torch.float32 and e0.dtype == torch.float32
 
@@ -741,12 +707,7 @@ class WanModel(ModelMixin, ConfigMixin):
         context_lens = None
         context = self.text_embedding(
             torch.stack(
-                [
-                    torch.cat(
-                        [u, u.new_zeros(self.text_len - u.size(0), u.size(1))]
-                    )
-                    for u in context
-                ]
+                [torch.cat([u, u.new_zeros(self.text_len - u.size(0), u.size(1))]) for u in context]
             )
         )
 
@@ -802,9 +763,7 @@ class WanModel(ModelMixin, ConfigMixin):
             final_x = torch.cat(final_x, dim=1)
             if concat_time_embeddings:
                 final_x = cls_pred_branch(
-                    torch.cat([final_x, 10 * e[:, None, :]], dim=1).view(
-                        final_x.shape[0], -1
-                    )
+                    torch.cat([final_x, 10 * e[:, None, :]], dim=1).view(final_x.shape[0], -1)
                 )
             else:
                 final_x = cls_pred_branch(final_x.view(final_x.shape[0], -1))
@@ -864,26 +823,17 @@ class WanModel(ModelMixin, ConfigMixin):
 
         # embeddings
         x = [self.patch_embedding(u.unsqueeze(0)) for u in x]
-        grid_sizes = torch.stack(
-            [torch.tensor(u.shape[2:], dtype=torch.long) for u in x]
-        )
+        grid_sizes = torch.stack([torch.tensor(u.shape[2:], dtype=torch.long) for u in x])
         x = [u.flatten(2).transpose(1, 2) for u in x]
         seq_lens = torch.tensor([u.size(1) for u in x], dtype=torch.long)
         assert seq_lens.max() <= seq_len
         x = torch.cat(
-            [
-                torch.cat(
-                    [u, u.new_zeros(1, seq_len - u.size(1), u.size(2))], dim=1
-                )
-                for u in x
-            ]
+            [torch.cat([u, u.new_zeros(1, seq_len - u.size(1), u.size(2))], dim=1) for u in x]
         )
 
         # time embeddings
         # with amp.autocast(dtype=torch.float32):
-        e = self.time_embedding(
-            sinusoidal_embedding_1d(self.freq_dim, t).type_as(x)
-        )
+        e = self.time_embedding(sinusoidal_embedding_1d(self.freq_dim, t).type_as(x))
         e0 = self.time_projection(e).unflatten(1, (6, self.dim))
         # assert e.dtype == torch.float32 and e0.dtype == torch.float32
 
@@ -891,12 +841,7 @@ class WanModel(ModelMixin, ConfigMixin):
         context_lens = None
         context = self.text_embedding(
             torch.stack(
-                [
-                    torch.cat(
-                        [u, u.new_zeros(self.text_len - u.size(0), u.size(1))]
-                    )
-                    for u in context
-                ]
+                [torch.cat([u, u.new_zeros(self.text_len - u.size(0), u.size(1))]) for u in context]
             )
         )
 

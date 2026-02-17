@@ -121,9 +121,7 @@ class PromptExpander:
         self.is_vl = is_vl
         self.device = device
 
-    def extend_with_img(
-        self, prompt, system_prompt, image=None, seed=-1, *args, **kwargs
-    ):
+    def extend_with_img(self, prompt, system_prompt, image=None, seed=-1, *args, **kwargs):
         pass
 
     def extend(self, prompt, system_prompt, seed=-1, *args, **kwargs):
@@ -136,9 +134,7 @@ class PromptExpander:
         else:
             return LM_EN_SYS_PROMPT if not self.is_vl else VL_EN_SYS_PROMPT
 
-    def __call__(
-        self, prompt, tar_lang="ch", image=None, seed=-1, *args, **kwargs
-    ):
+    def __call__(self, prompt, tar_lang="ch", image=None, seed=-1, *args, **kwargs):
         system_prompt = self.decide_system_prompt(tar_lang=tar_lang)
         if seed < 0:
             seed = random.randint(0, sys.maxsize)
@@ -177,22 +173,14 @@ class DashScopePromptExpander(PromptExpander):
         super().__init__(model_name, is_vl, **kwargs)
         if api_key is not None:
             dashscope.api_key = api_key
-        elif (
-            "DASH_API_KEY" in os.environ
-            and os.environ["DASH_API_KEY"] is not None
-        ):
+        elif "DASH_API_KEY" in os.environ and os.environ["DASH_API_KEY"] is not None:
             dashscope.api_key = os.environ["DASH_API_KEY"]
         else:
             raise ValueError("DASH_API_KEY is not set")
-        if (
-            "DASH_API_URL" in os.environ
-            and os.environ["DASH_API_URL"] is not None
-        ):
+        if "DASH_API_URL" in os.environ and os.environ["DASH_API_URL"] is not None:
             dashscope.base_http_api_url = os.environ["DASH_API_URL"]
         else:
-            dashscope.base_http_api_url = (
-                "https://dashscope.aliyuncs.com/api/v1"
-            )
+            dashscope.base_http_api_url = "https://dashscope.aliyuncs.com/api/v1"
         self.api_key = api_key
 
         self.max_image_size = max_image_size
@@ -215,9 +203,7 @@ class DashScopePromptExpander(PromptExpander):
                     result_format="message",  # set the result to be "message" format.
                 )
                 assert response.status_code == HTTPStatus.OK, response
-                expanded_prompt = response["output"]["choices"][0]["message"][
-                    "content"
-                ]
+                expanded_prompt = response["output"]["choices"][0]["message"]["content"]
                 return PromptOutput(
                     status=True,
                     prompt=expanded_prompt,
@@ -278,9 +264,9 @@ class DashScopePromptExpander(PromptExpander):
                     result_format="message",  # set the result to be "message" format.
                 )
                 assert response.status_code == HTTPStatus.OK, response
-                result_prompt = response["output"]["choices"][0]["message"][
-                    "content"
-                ][0]["text"].replace("\n", "\\n")
+                result_prompt = response["output"]["choices"][0]["message"]["content"][0][
+                    "text"
+                ].replace("\n", "\\n")
                 status = True
                 break
             except Exception as e:
@@ -293,11 +279,7 @@ class DashScopePromptExpander(PromptExpander):
             prompt=result_prompt,
             seed=seed,
             system_prompt=system_prompt,
-            message=(
-                str(exception)
-                if not status
-                else json.dumps(response, ensure_ascii=False)
-            ),
+            message=(str(exception) if not status else json.dumps(response, ensure_ascii=False)),
         )
 
 
@@ -329,9 +311,7 @@ class QwenPromptExpander(PromptExpander):
         if model_name is None:
             model_name = "Qwen2.5_14B" if not is_vl else "QwenVL2.5_7B"
         super().__init__(model_name, is_vl, device, **kwargs)
-        if (not os.path.exists(self.model_name)) and (
-            self.model_name in self.model_dict
-        ):
+        if (not os.path.exists(self.model_name)) and (self.model_name in self.model_dict):
             self.model_name = self.model_dict[self.model_name]
 
         if self.is_vl:
@@ -362,9 +342,7 @@ class QwenPromptExpander(PromptExpander):
                     if FLASH_VER == 2
                     else torch.float16 if "AWQ" in self.model_name else "auto"
                 ),
-                attn_implementation=(
-                    "flash_attention_2" if FLASH_VER == 2 else None
-                ),
+                attn_implementation=("flash_attention_2" if FLASH_VER == 2 else None),
                 device_map="cpu",
             )
         else:
@@ -372,12 +350,8 @@ class QwenPromptExpander(PromptExpander):
 
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
-                torch_dtype=(
-                    torch.float16 if "AWQ" in self.model_name else "auto"
-                ),
-                attn_implementation=(
-                    "flash_attention_2" if FLASH_VER == 2 else None
-                ),
+                torch_dtype=(torch.float16 if "AWQ" in self.model_name else "auto"),
+                attn_implementation=("flash_attention_2" if FLASH_VER == 2 else None),
                 device_map="cpu",
             )
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
@@ -391,30 +365,22 @@ class QwenPromptExpander(PromptExpander):
         text = self.tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
-        model_inputs = self.tokenizer([text], return_tensors="pt").to(
-            self.model.device
-        )
+        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.model.device)
 
         generated_ids = self.model.generate(**model_inputs, max_new_tokens=512)
         generated_ids = [
             output_ids[len(input_ids) :]
-            for input_ids, output_ids in zip(
-                model_inputs.input_ids, generated_ids
-            )
+            for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
         ]
 
-        expanded_prompt = self.tokenizer.batch_decode(
-            generated_ids, skip_special_tokens=True
-        )[0]
+        expanded_prompt = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
         self.model = self.model.to("cpu")
         return PromptOutput(
             status=True,
             prompt=expanded_prompt,
             seed=seed,
             system_prompt=system_prompt,
-            message=json.dumps(
-                {"content": expanded_prompt}, ensure_ascii=False
-            ),
+            message=json.dumps({"content": expanded_prompt}, ensure_ascii=False),
         )
 
     def extend_with_img(
@@ -461,8 +427,7 @@ class QwenPromptExpander(PromptExpander):
         # Inference: Generation of the output
         generated_ids = self.model.generate(**inputs, max_new_tokens=512)
         generated_ids_trimmed = [
-            out_ids[len(in_ids) :]
-            for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+            out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
         ]
         expanded_prompt = self.processor.batch_decode(
             generated_ids_trimmed,
@@ -475,9 +440,7 @@ class QwenPromptExpander(PromptExpander):
             prompt=expanded_prompt,
             seed=seed,
             system_prompt=system_prompt,
-            message=json.dumps(
-                {"content": expanded_prompt}, ensure_ascii=False
-            ),
+            message=json.dumps({"content": expanded_prompt}, ensure_ascii=False),
         )
 
 
@@ -493,17 +456,11 @@ if __name__ == "__main__":
     # qwen_model_name = "./models/Qwen2.5-14B-Instruct-AWQ/"  # VRAM: 10414MiB
 
     # test dashscope api
-    dashscope_prompt_expander = DashScopePromptExpander(
-        model_name=ds_model_name
-    )
+    dashscope_prompt_expander = DashScopePromptExpander(model_name=ds_model_name)
     dashscope_result = dashscope_prompt_expander(prompt, tar_lang="ch")
-    print(
-        "LM dashscope result -> ch", dashscope_result.prompt
-    )  # dashscope_result.system_prompt)
+    print("LM dashscope result -> ch", dashscope_result.prompt)  # dashscope_result.system_prompt)
     dashscope_result = dashscope_prompt_expander(prompt, tar_lang="en")
-    print(
-        "LM dashscope result -> en", dashscope_result.prompt
-    )  # dashscope_result.system_prompt)
+    print("LM dashscope result -> en", dashscope_result.prompt)  # dashscope_result.system_prompt)
     dashscope_result = dashscope_prompt_expander(en_prompt, tar_lang="ch")
     print(
         "LM dashscope en result -> ch", dashscope_result.prompt
@@ -513,25 +470,15 @@ if __name__ == "__main__":
         "LM dashscope en result -> en", dashscope_result.prompt
     )  # dashscope_result.system_prompt)
     # # test qwen api
-    qwen_prompt_expander = QwenPromptExpander(
-        model_name=qwen_model_name, is_vl=False, device=0
-    )
+    qwen_prompt_expander = QwenPromptExpander(model_name=qwen_model_name, is_vl=False, device=0)
     qwen_result = qwen_prompt_expander(prompt, tar_lang="ch")
-    print(
-        "LM qwen result -> ch", qwen_result.prompt
-    )  # qwen_result.system_prompt)
+    print("LM qwen result -> ch", qwen_result.prompt)  # qwen_result.system_prompt)
     qwen_result = qwen_prompt_expander(prompt, tar_lang="en")
-    print(
-        "LM qwen result -> en", qwen_result.prompt
-    )  # qwen_result.system_prompt)
+    print("LM qwen result -> en", qwen_result.prompt)  # qwen_result.system_prompt)
     qwen_result = qwen_prompt_expander(en_prompt, tar_lang="ch")
-    print(
-        "LM qwen en result -> ch", qwen_result.prompt
-    )  # , qwen_result.system_prompt)
+    print("LM qwen en result -> ch", qwen_result.prompt)  # , qwen_result.system_prompt)
     qwen_result = qwen_prompt_expander(en_prompt, tar_lang="en")
-    print(
-        "LM qwen en result -> en", qwen_result.prompt
-    )  # , qwen_result.system_prompt)
+    print("LM qwen en result -> en", qwen_result.prompt)  # , qwen_result.system_prompt)
     # test case for prompt-image extend
     ds_model_name = "qwen-vl-max"
     # qwen_model_name = "./models/Qwen2.5-VL-3B-Instruct/" #VRAM: 9686MiB
@@ -539,58 +486,26 @@ if __name__ == "__main__":
     image = "./examples/i2v_input.JPG"
 
     # test dashscope api why image_path is local directory; skip
-    dashscope_prompt_expander = DashScopePromptExpander(
-        model_name=ds_model_name, is_vl=True
-    )
-    dashscope_result = dashscope_prompt_expander(
-        prompt, tar_lang="ch", image=image, seed=seed
-    )
-    print(
-        "VL dashscope result -> ch", dashscope_result.prompt
-    )  # , dashscope_result.system_prompt)
-    dashscope_result = dashscope_prompt_expander(
-        prompt, tar_lang="en", image=image, seed=seed
-    )
-    print(
-        "VL dashscope result -> en", dashscope_result.prompt
-    )  # , dashscope_result.system_prompt)
-    dashscope_result = dashscope_prompt_expander(
-        en_prompt, tar_lang="ch", image=image, seed=seed
-    )
+    dashscope_prompt_expander = DashScopePromptExpander(model_name=ds_model_name, is_vl=True)
+    dashscope_result = dashscope_prompt_expander(prompt, tar_lang="ch", image=image, seed=seed)
+    print("VL dashscope result -> ch", dashscope_result.prompt)  # , dashscope_result.system_prompt)
+    dashscope_result = dashscope_prompt_expander(prompt, tar_lang="en", image=image, seed=seed)
+    print("VL dashscope result -> en", dashscope_result.prompt)  # , dashscope_result.system_prompt)
+    dashscope_result = dashscope_prompt_expander(en_prompt, tar_lang="ch", image=image, seed=seed)
     print(
         "VL dashscope en result -> ch", dashscope_result.prompt
     )  # , dashscope_result.system_prompt)
-    dashscope_result = dashscope_prompt_expander(
-        en_prompt, tar_lang="en", image=image, seed=seed
-    )
+    dashscope_result = dashscope_prompt_expander(en_prompt, tar_lang="en", image=image, seed=seed)
     print(
         "VL dashscope en result -> en", dashscope_result.prompt
     )  # , dashscope_result.system_prompt)
     # test qwen api
-    qwen_prompt_expander = QwenPromptExpander(
-        model_name=qwen_model_name, is_vl=True, device=0
-    )
-    qwen_result = qwen_prompt_expander(
-        prompt, tar_lang="ch", image=image, seed=seed
-    )
-    print(
-        "VL qwen result -> ch", qwen_result.prompt
-    )  # , qwen_result.system_prompt)
-    qwen_result = qwen_prompt_expander(
-        prompt, tar_lang="en", image=image, seed=seed
-    )
-    print(
-        "VL qwen result ->en", qwen_result.prompt
-    )  # , qwen_result.system_prompt)
-    qwen_result = qwen_prompt_expander(
-        en_prompt, tar_lang="ch", image=image, seed=seed
-    )
-    print(
-        "VL qwen vl en result -> ch", qwen_result.prompt
-    )  # , qwen_result.system_prompt)
-    qwen_result = qwen_prompt_expander(
-        en_prompt, tar_lang="en", image=image, seed=seed
-    )
-    print(
-        "VL qwen vl en result -> en", qwen_result.prompt
-    )  # , qwen_result.system_prompt)
+    qwen_prompt_expander = QwenPromptExpander(model_name=qwen_model_name, is_vl=True, device=0)
+    qwen_result = qwen_prompt_expander(prompt, tar_lang="ch", image=image, seed=seed)
+    print("VL qwen result -> ch", qwen_result.prompt)  # , qwen_result.system_prompt)
+    qwen_result = qwen_prompt_expander(prompt, tar_lang="en", image=image, seed=seed)
+    print("VL qwen result ->en", qwen_result.prompt)  # , qwen_result.system_prompt)
+    qwen_result = qwen_prompt_expander(en_prompt, tar_lang="ch", image=image, seed=seed)
+    print("VL qwen vl en result -> ch", qwen_result.prompt)  # , qwen_result.system_prompt)
+    qwen_result = qwen_prompt_expander(en_prompt, tar_lang="en", image=image, seed=seed)
+    print("VL qwen vl en result -> en", qwen_result.prompt)  # , qwen_result.system_prompt)

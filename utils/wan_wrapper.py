@@ -53,9 +53,7 @@ class WanTextEncoder(torch.nn.Module):
         self,
         text_prompts: List[str],
     ) -> dict:
-        ids, mask = self.tokenizer(
-            text_prompts, return_mask=True, add_special_tokens=True
-        )
+        ids, mask = self.tokenizer(text_prompts, return_mask=True, add_special_tokens=True)
         ids = ids.to(self.device)
         mask = mask.to(self.device)
         seq_lens = mask.gt(0).sum(dim=1).long()
@@ -132,10 +130,7 @@ class WanVAEWrapper(torch.nn.Module):
             1.0 / self.std.to(device=device, dtype=dtype),
         ]
 
-        output = [
-            self.model.encode(u.unsqueeze(0), scale).float().squeeze(0)
-            for u in pixel
-        ]
+        output = [self.model.encode(u.unsqueeze(0), scale).float().squeeze(0) for u in pixel]
         output = torch.stack(output, dim=0)
         # from [batch_size, num_channels, num_frames, height, width]
         # to [batch_size, num_frames, num_channels, height, width]
@@ -166,12 +161,7 @@ class WanVAEWrapper(torch.nn.Module):
 
         output = []
         for u in zs:
-            output.append(
-                decode_function(u.unsqueeze(0), scale)
-                .float()
-                .clamp_(-1, 1)
-                .squeeze(0)
-            )
+            output.append(decode_function(u.unsqueeze(0), scale).float().clamp_(-1, 1).squeeze(0))
         output = torch.stack(output, dim=0)
         # from [batch_size, num_channels, num_frames, height, width]
         # to [batch_size, num_frames, num_channels, height, width]
@@ -230,9 +220,7 @@ class WanDiffusionWrapper(torch.nn.Module):
         )
         self._cls_pred_branch.requires_grad_(True)
         num_registers = 3
-        self._register_tokens = RegisterTokens(
-            num_registers=num_registers, dim=atten_dim
-        )
+        self._register_tokens = RegisterTokens(num_registers=num_registers, dim=atten_dim)
         self._register_tokens.requires_grad_(True)
 
         gan_ca_blocks = []
@@ -267,9 +255,7 @@ class WanDiffusionWrapper(torch.nn.Module):
             [flow_pred, xt, self.scheduler.sigmas, self.scheduler.timesteps],
         )
 
-        timestep_id = torch.argmin(
-            (timesteps.unsqueeze(0) - timestep.unsqueeze(1)).abs(), dim=1
-        )
+        timestep_id = torch.argmin((timesteps.unsqueeze(0) - timestep.unsqueeze(1)).abs(), dim=1)
         sigma_t = sigmas[timestep_id].reshape(-1, 1, 1, 1)
         x0_pred = xt - sigma_t * flow_pred
         return x0_pred.to(original_dtype)
@@ -295,9 +281,7 @@ class WanDiffusionWrapper(torch.nn.Module):
             lambda x: x.double().to(x0_pred.device),
             [x0_pred, xt, scheduler.sigmas, scheduler.timesteps],
         )
-        timestep_id = torch.argmin(
-            (timesteps.unsqueeze(0) - timestep.unsqueeze(1)).abs(), dim=1
-        )
+        timestep_id = torch.argmin((timesteps.unsqueeze(0) - timestep.unsqueeze(1)).abs(), dim=1)
         sigma_t = sigmas[timestep_id].reshape(-1, 1, 1, 1)
         flow_pred = (xt - x0_pred) / sigma_t
         return flow_pred.to(original_dtype)

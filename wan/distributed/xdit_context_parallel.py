@@ -42,9 +42,7 @@ def rope_apply(x, grid_sizes, freqs):
         seq_len = f * h * w
 
         # precompute multipliers
-        x_i = torch.view_as_complex(
-            x[i, :s].to(torch.float64).reshape(s, n, -1, 2)
-        )
+        x_i = torch.view_as_complex(x[i, :s].to(torch.float64).reshape(s, n, -1, 2))
         freqs_i = torch.cat(
             [
                 freqs[0][:f].view(f, 1, 1, -1).expand(f, h, w, -1),
@@ -59,9 +57,7 @@ def rope_apply(x, grid_sizes, freqs):
         sp_rank = get_sequence_parallel_rank()
         freqs_i = pad_freqs(freqs_i, s * sp_size)
         s_per_rank = s
-        freqs_i_rank = freqs_i[
-            (sp_rank * s_per_rank) : ((sp_rank + 1) * s_per_rank), :, :
-        ]
+        freqs_i_rank = freqs_i[(sp_rank * s_per_rank) : ((sp_rank + 1) * s_per_rank), :, :]
         x_i = torch.view_as_real(x_i * freqs_i_rank).flatten(2)
         x_i = torch.cat([x_i, x[i, s:]])
 
@@ -96,26 +92,17 @@ def usp_dit_forward(
 
     # embeddings
     x = [self.patch_embedding(u.unsqueeze(0)) for u in x]
-    grid_sizes = torch.stack(
-        [torch.tensor(u.shape[2:], dtype=torch.long) for u in x]
-    )
+    grid_sizes = torch.stack([torch.tensor(u.shape[2:], dtype=torch.long) for u in x])
     x = [u.flatten(2).transpose(1, 2) for u in x]
     seq_lens = torch.tensor([u.size(1) for u in x], dtype=torch.long)
     assert seq_lens.max() <= seq_len
     x = torch.cat(
-        [
-            torch.cat(
-                [u, u.new_zeros(1, seq_len - u.size(1), u.size(2))], dim=1
-            )
-            for u in x
-        ]
+        [torch.cat([u, u.new_zeros(1, seq_len - u.size(1), u.size(2))], dim=1) for u in x]
     )
 
     # time embeddings
     with amp.autocast(dtype=torch.float32):
-        e = self.time_embedding(
-            sinusoidal_embedding_1d(self.freq_dim, t).float()
-        )
+        e = self.time_embedding(sinusoidal_embedding_1d(self.freq_dim, t).float())
         e0 = self.time_projection(e).unflatten(1, (6, self.dim))
         assert e.dtype == torch.float32 and e0.dtype == torch.float32
 
@@ -123,12 +110,7 @@ def usp_dit_forward(
     context_lens = None
     context = self.text_embedding(
         torch.stack(
-            [
-                torch.cat(
-                    [u, u.new_zeros(self.text_len - u.size(0), u.size(1))]
-                )
-                for u in context
-            ]
+            [torch.cat([u, u.new_zeros(self.text_len - u.size(0), u.size(1))]) for u in context]
         )
     )
 
@@ -147,9 +129,7 @@ def usp_dit_forward(
     )
 
     # Context Parallel
-    x = torch.chunk(x, get_sequence_parallel_world_size(), dim=1)[
-        get_sequence_parallel_rank()
-    ]
+    x = torch.chunk(x, get_sequence_parallel_world_size(), dim=1)[get_sequence_parallel_rank()]
 
     for block in self.blocks:
         x = block(x, **kwargs)
@@ -165,9 +145,7 @@ def usp_dit_forward(
     return [u.float() for u in x]
 
 
-def usp_attn_forward(
-    self, x, seq_lens, grid_sizes, freqs, dtype=torch.bfloat16
-):
+def usp_attn_forward(self, x, seq_lens, grid_sizes, freqs, dtype=torch.bfloat16):
     b, s, n, d = *x.shape[:2], self.num_heads, self.head_dim
     half_dtypes = (torch.float16, torch.bfloat16)
 

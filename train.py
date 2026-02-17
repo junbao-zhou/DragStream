@@ -53,10 +53,7 @@ def _configure_logging(
     _add_rank_to_record()
 
     ts = time.strftime("%Y-%m-%d_%H-%M-%S")
-    logfile = (
-        logdir
-        / f"train-node{_current_node_rank()}-rank{_current_process_rank()}-{ts}.log"
-    )
+    logfile = logdir / f"train-node{_current_node_rank()}-rank{_current_process_rank()}-{ts}.log"
 
     fmt = logging.Formatter(
         "[rank:{rank}] [{levelname}] [{asctime}] : {message}",
@@ -100,12 +97,10 @@ def main(
 
     _configure_logging(logdir)
 
-    logging.info(
-        f"""
+    logging.info(f"""
 {config_name = }
 config = {format_dict(config)}
-"""
-    )
+""")
 
     if config.trainer == "diffusion":
         trainer = DiffusionTrainer(config)

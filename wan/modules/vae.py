@@ -56,9 +56,7 @@ class RMS_norm(nn.Module):
 
     def forward(self, x):
         return (
-            F.normalize(x, dim=(1 if self.channel_first else -1))
-            * self.scale
-            * self.gamma
+            F.normalize(x, dim=(1 if self.channel_first else -1)) * self.scale * self.gamma
             + self.bias
         )
 
@@ -97,9 +95,7 @@ class Resample(nn.Module):
                 Upsample(scale_factor=(2.0, 2.0), mode="nearest"),
                 nn.Conv2d(dim, dim // 2, 3, padding=1),
             )
-            self.time_conv = CausalConv3d(
-                dim, dim * 2, (3, 1, 1), padding=(1, 0, 0)
-            )
+            self.time_conv = CausalConv3d(dim, dim * 2, (3, 1, 1), padding=(1, 0, 0))
 
         elif mode == "downsample2d":
             self.resample = nn.Sequential(
@@ -111,9 +107,7 @@ class Resample(nn.Module):
                 nn.ZeroPad2d((0, 1, 0, 1)),
                 nn.Conv2d(dim, dim, 3, stride=(2, 2)),
             )
-            self.time_conv = CausalConv3d(
-                dim, dim, (3, 1, 1), stride=(2, 1, 1), padding=(0, 0, 0)
-            )
+            self.time_conv = CausalConv3d(dim, dim, (3, 1, 1), stride=(2, 1, 1), padding=(0, 0, 0))
 
         else:
             self.resample = nn.Identity()
@@ -137,9 +131,7 @@ class Resample(nn.Module):
                         # cache last frame of last two chunk
                         cache_x = torch.cat(
                             [
-                                feat_cache[idx][:, :, -1, :, :]
-                                .unsqueeze(2)
-                                .to(cache_x.device),
+                                feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device),
                                 cache_x,
                             ],
                             dim=2,
@@ -164,9 +156,7 @@ class Resample(nn.Module):
                     feat_idx[0] += 1
 
                     x = x.reshape(b, 2, c, t, h, w)
-                    x = torch.stack(
-                        (x[:, 0, :, :, :, :], x[:, 1, :, :, :, :]), 3
-                    )
+                    x = torch.stack((x[:, 0, :, :, :, :], x[:, 1, :, :, :, :]), 3)
                     x = x.reshape(b, c, t * 2, h, w)
         t = x.shape[2]
         x = rearrange(x, "b c t h w -> (b t) c h w")
@@ -186,9 +176,7 @@ class Resample(nn.Module):
                     #     # cache last frame of last two chunk
                     #     cache_x = torch.cat([feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device), cache_x], dim=2)
 
-                    x = self.time_conv(
-                        torch.cat([feat_cache[idx][:, :, -1:, :, :], x], 2)
-                    )
+                    x = self.time_conv(torch.cat([feat_cache[idx][:, :, -1:, :, :], x], 2))
                     feat_cache[idx] = cache_x
                     feat_idx[0] += 1
         return x
@@ -234,11 +222,7 @@ class ResidualBlock(nn.Module):
             nn.Dropout(dropout),
             CausalConv3d(out_dim, out_dim, 3, padding=1),
         )
-        self.shortcut = (
-            CausalConv3d(in_dim, out_dim, 1)
-            if in_dim != out_dim
-            else nn.Identity()
-        )
+        self.shortcut = CausalConv3d(in_dim, out_dim, 1) if in_dim != out_dim else nn.Identity()
 
     def forward(self, x, feat_cache=None, feat_idx=[0]):
         h = self.shortcut(x)
@@ -250,9 +234,7 @@ class ResidualBlock(nn.Module):
                     # cache last frame of last two chunk
                     cache_x = torch.cat(
                         [
-                            feat_cache[idx][:, :, -1, :, :]
-                            .unsqueeze(2)
-                            .to(cache_x.device),
+                            feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device),
                             cache_x,
                         ],
                         dim=2,
@@ -349,9 +331,7 @@ class Encoder3d(nn.Module):
 
             # downsample block
             if i != len(dim_mult) - 1:
-                mode = (
-                    "downsample3d" if temperal_downsample[i] else "downsample2d"
-                )
+                mode = "downsample3d" if temperal_downsample[i] else "downsample2d"
                 downsamples.append(Resample(out_dim, mode=mode))
                 scale /= 2.0
         self.downsamples = nn.Sequential(*downsamples)
@@ -378,9 +358,7 @@ class Encoder3d(nn.Module):
                 # cache last frame of last two chunk
                 cache_x = torch.cat(
                     [
-                        feat_cache[idx][:, :, -1, :, :]
-                        .unsqueeze(2)
-                        .to(cache_x.device),
+                        feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device),
                         cache_x,
                     ],
                     dim=2,
@@ -414,9 +392,7 @@ class Encoder3d(nn.Module):
                     # cache last frame of last two chunk
                     cache_x = torch.cat(
                         [
-                            feat_cache[idx][:, :, -1, :, :]
-                            .unsqueeze(2)
-                            .to(cache_x.device),
+                            feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device),
                             cache_x,
                         ],
                         dim=2,
@@ -498,9 +474,7 @@ class Decoder3d(nn.Module):
                 # cache last frame of last two chunk
                 cache_x = torch.cat(
                     [
-                        feat_cache[idx][:, :, -1, :, :]
-                        .unsqueeze(2)
-                        .to(cache_x.device),
+                        feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device),
                         cache_x,
                     ],
                     dim=2,
@@ -534,9 +508,7 @@ class Decoder3d(nn.Module):
                     # cache last frame of last two chunk
                     cache_x = torch.cat(
                         [
-                            feat_cache[idx][:, :, -1, :, :]
-                            .unsqueeze(2)
-                            .to(cache_x.device),
+                            feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device),
                             cache_x,
                         ],
                         dim=2,
@@ -642,9 +614,7 @@ class WanVAE_(nn.Module):
         self.clear_cache()
         # z: [b,c,t,h,w]
         if isinstance(scale[0], torch.Tensor):
-            z = z / scale[1].view(1, self.z_dim, 1, 1, 1) + scale[0].view(
-                1, self.z_dim, 1, 1, 1
-            )
+            z = z / scale[1].view(1, self.z_dim, 1, 1, 1) + scale[0].view(1, self.z_dim, 1, 1, 1)
         else:
             z = z / scale[1] + scale[0]
         iter_ = z.shape[2]
@@ -670,9 +640,7 @@ class WanVAE_(nn.Module):
     def cached_decode(self, z, scale):
         # z: [b,c,t,h,w]
         if isinstance(scale[0], torch.Tensor):
-            z = z / scale[1].view(1, self.z_dim, 1, 1, 1) + scale[0].view(
-                1, self.z_dim, 1, 1, 1
-            )
+            z = z / scale[1].view(1, self.z_dim, 1, 1, 1) + scale[0].view(1, self.z_dim, 1, 1, 1)
         else:
             z = z / scale[1] + scale[0]
         iter_ = z.shape[2]
@@ -733,9 +701,7 @@ def _video_vae(pretrained_path=None, z_dim=None, device="cpu", **kwargs):
 
     # load checkpoint
     logging.info(f"loading {pretrained_path}")
-    model.load_state_dict(
-        torch.load(pretrained_path, map_location=device), assign=True
-    )
+    model.load_state_dict(torch.load(pretrained_path, map_location=device), assign=True)
 
     return model
 
@@ -809,16 +775,12 @@ class WanVAE:
         """
         with amp.autocast(dtype=self.dtype):
             return [
-                self.model.encode(u.unsqueeze(0), self.scale).float().squeeze(0)
-                for u in videos
+                self.model.encode(u.unsqueeze(0), self.scale).float().squeeze(0) for u in videos
             ]
 
     def decode(self, zs):
         with amp.autocast(dtype=self.dtype):
             return [
-                self.model.decode(u.unsqueeze(0), self.scale)
-                .float()
-                .clamp_(-1, 1)
-                .squeeze(0)
+                self.model.decode(u.unsqueeze(0), self.scale).float().clamp_(-1, 1).squeeze(0)
                 for u in zs
             ]

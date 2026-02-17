@@ -23,9 +23,7 @@ class CausVid(BaseModel):
         if self.num_frame_per_block > 1:
             self.generator.model.num_frame_per_block = self.num_frame_per_block
 
-        self.independent_first_frame = getattr(
-            args, "independent_first_frame", False
-        )
+        self.independent_first_frame = getattr(args, "independent_first_frame", False)
         if self.independent_first_frame:
             self.generator.model.independent_first_frame = True
         if args.gradient_checkpointing:
@@ -46,9 +44,7 @@ class CausVid(BaseModel):
         self.teacher_forcing = getattr(args, "teacher_forcing", False)
 
         if getattr(self.scheduler, "alphas_cumprod", None) is not None:
-            self.scheduler.alphas_cumprod = self.scheduler.alphas_cumprod.to(
-                device
-            )
+            self.scheduler.alphas_cumprod = self.scheduler.alphas_cumprod.to(device)
         else:
             self.scheduler.alphas_cumprod = None
 
@@ -89,8 +85,7 @@ class CausVid(BaseModel):
             )
             pred_fake_image = (
                 pred_fake_image_cond
-                + (pred_fake_image_cond - pred_fake_image_uncond)
-                * self.fake_guidance_scale
+                + (pred_fake_image_cond - pred_fake_image_uncond) * self.fake_guidance_scale
             )
         else:
             pred_fake_image = pred_fake_image_cond
@@ -112,8 +107,7 @@ class CausVid(BaseModel):
 
         pred_real_image = (
             pred_real_image_cond
-            + (pred_real_image_cond - pred_real_image_uncond)
-            * self.real_guidance_scale
+            + (pred_real_image_cond - pred_real_image_uncond) * self.real_guidance_scale
         )
 
         # Step 3: Compute the DMD gradient (DMD paper eq. 7).
@@ -197,9 +191,7 @@ class CausVid(BaseModel):
         if gradient_mask is not None:
             dmd_loss = 0.5 * F.mse_loss(
                 original_latent.double()[gradient_mask],
-                (original_latent.double() - grad.double()).detach()[
-                    gradient_mask
-                ],
+                (original_latent.double() - grad.double()).detach()[gradient_mask],
                 reduction="mean",
             )
         else:
@@ -230,9 +222,7 @@ class CausVid(BaseModel):
         """
         simulated_noisy_input = []
         for timestep in self.denoising_step_list:
-            noise = torch.randn(
-                image_or_video_shape, device=self.device, dtype=self.dtype
-            )
+            noise = torch.randn(image_or_video_shape, device=self.device, dtype=self.dtype)
 
             noisy_timestep = timestep * torch.ones(
                 image_or_video_shape[:2], device=self.device, dtype=torch.long

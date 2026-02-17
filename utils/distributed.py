@@ -20,12 +20,8 @@ from torch.distributed.fsdp.wrap import (
 def fsdp_state_dict(
     model,
 ):
-    fsdp_fullstate_save_policy = FullStateDictConfig(
-        offload_to_cpu=True, rank0_only=True
-    )
-    with FSDP.state_dict_type(
-        model, StateDictType.FULL_STATE_DICT, fsdp_fullstate_save_policy
-    ):
+    fsdp_fullstate_save_policy = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+    with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, fsdp_fullstate_save_policy):
         checkpoint = model.state_dict()
 
     return checkpoint
@@ -56,9 +52,7 @@ def fsdp_wrap(
             transformer_layer_cls=transformer_module,
         )
     elif wrap_strategy == "size":
-        auto_wrap_policy = partial(
-            size_based_auto_wrap_policy, min_num_params=min_num_params
-        )
+        auto_wrap_policy = partial(size_based_auto_wrap_policy, min_num_params=min_num_params)
     else:
         raise ValueError(f"Invalid wrap strategy: {wrap_strategy}")
 
@@ -144,9 +138,7 @@ class EMA_FSDP:
 
         with FSDP.summon_full_params(fsdp_module, writeback=False):
             for n, p in fsdp_module.module.named_parameters():
-                self.shadow[n].mul_(d).add_(
-                    p.detach().float().cpu(), alpha=1.0 - d
-                )
+                self.shadow[n].mul_(d).add_(p.detach().float().cpu(), alpha=1.0 - d)
 
     # Optional helpers ---------------------------------------------------
     def state_dict(

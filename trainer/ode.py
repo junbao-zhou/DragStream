@@ -63,9 +63,7 @@ class Trainer:
 
         # Step 2: Initialize the model and optimizer
 
-        assert (
-            config.distribution_loss == "ode"
-        ), "Only ODE loss is supported for ODE training"
+        assert config.distribution_loss == "ode", "Only ODE loss is supported for ODE training"
         self.model = ODERegression(config, device=self.device)
 
         self.model.generator = fsdp_wrap(
@@ -85,17 +83,11 @@ class Trainer:
         if not config.no_visualize or config.load_raw_video:
             self.model.vae = self.model.vae.to(
                 device=self.device,
-                dtype=(
-                    torch.bfloat16 if config.mixed_precision else torch.float32
-                ),
+                dtype=(torch.bfloat16 if config.mixed_precision else torch.float32),
             )
 
         self.generator_optimizer = torch.optim.AdamW(
-            [
-                param
-                for param in self.model.generator.parameters()
-                if param.requires_grad
-            ],
+            [param for param in self.model.generator.parameters() if param.requires_grad],
             lr=config.lr,
             betas=(config.beta1, config.beta2),
             weight_decay=config.weight_decay,
@@ -127,9 +119,7 @@ class Trainer:
         # 7. (If resuming) Load the model and optimizer, lr_scheduler, ema's statedicts
         if getattr(config, "generator_ckpt", False):
             print(f"Loading pretrained generator from {config.generator_ckpt}")
-            state_dict = torch.load(config.generator_ckpt, map_location="cpu")[
-                "generator"
-            ]
+            state_dict = torch.load(config.generator_ckpt, map_location="cpu")["generator"]
             self.model.generator.load_state_dict(state_dict, strict=True)
 
         ##############################################################################################################
@@ -146,9 +136,7 @@ class Trainer:
 
         if self.is_main_process:
             os.makedirs(
-                os.path.join(
-                    self.output_path, f"checkpoint_model_{self.step:06d}"
-                ),
+                os.path.join(self.output_path, f"checkpoint_model_{self.step:06d}"),
                 exist_ok=True,
             )
             torch.save(
@@ -177,15 +165,11 @@ class Trainer:
         # Step 1: Get the next batch of text prompts
         batch = next(self.dataloader)
         text_prompts = batch["prompts"]
-        ode_latent = batch["ode_latent"].to(
-            device=self.device, dtype=self.dtype
-        )
+        ode_latent = batch["ode_latent"].to(device=self.device, dtype=self.dtype)
 
         # Step 2: Extract the conditional infos
         with torch.no_grad():
-            conditional_dict = self.model.text_encoder(
-                text_prompts=text_prompts
-            )
+            conditional_dict = self.model.text_encoder(text_prompts=text_prompts)
 
         # Step 3: Train the generator
         generator_loss, log_dict = self.model.generator_loss(
@@ -207,9 +191,7 @@ class Trainer:
                 device=self.device,
             )
 
-            dist.all_gather_into_tensor(
-                gathered_unnormalized_loss, unnormalized_loss
-            )
+            dist.all_gather_into_tensor(gathered_unnormalized_loss, unnormalized_loss)
             dist.all_gather_into_tensor(gathered_timestep, timestep)
         else:
             gathered_unnormalized_loss = unnormalized_loss
@@ -219,20 +201,14 @@ class Trainer:
         stats = {}
 
         for index, t in enumerate(timestep):
-            loss_breakdown[str(int(t.item()) // 250 * 250)].append(
-                unnormalized_loss[index].item()
-            )
+            loss_breakdown[str(int(t.item()) // 250 * 250)].append(unnormalized_loss[index].item())
 
         for key_t in loss_breakdown.keys():
-            stats["loss_at_time_" + key_t] = sum(loss_breakdown[key_t]) / len(
-                loss_breakdown[key_t]
-            )
+            stats["loss_at_time_" + key_t] = sum(loss_breakdown[key_t]) / len(loss_breakdown[key_t])
 
         self.generator_optimizer.zero_grad()
         generator_loss.backward()
-        generator_grad_norm = self.model.generator.clip_grad_norm_(
-            self.max_grad_norm
-        )
+        generator_grad_norm = self.model.generator.clip_grad_norm_(self.max_grad_norm)
         self.generator_optimizer.step()
 
         # Step 4: Visualization
@@ -252,19 +228,13 @@ class Trainer:
             ground_truth_video = self.model.vae.decode_to_pixel(ground_truth)
             input_video = 255.0 * (input_video.cpu().numpy() * 0.5 + 0.5)
             output_video = 255.0 * (output_video.cpu().numpy() * 0.5 + 0.5)
-            ground_truth_video = 255.0 * (
-                ground_truth_video.cpu().numpy() * 0.5 + 0.5
-            )
+            ground_truth_video = 255.0 * (ground_truth_video.cpu().numpy() * 0.5 + 0.5)
 
             # Visualize the input, output, and ground truth
             wandb.log(
                 {
-                    "input": wandb.Video(
-                        input_video, caption="Input", fps=16, format="mp4"
-                    ),
-                    "output": wandb.Video(
-                        output_video, caption="Output", fps=16, format="mp4"
-                    ),
+                    "input": wandb.Video(input_video, caption="Input", fps=16, format="mp4"),
+                    "output": wandb.Video(output_video, caption="Output", fps=16, format="mp4"),
                     "ground_truth": wandb.Video(
                         ground_truth_video,
                         caption="Ground Truth",
@@ -294,9 +264,7 @@ class Trainer:
     ):
         while True:
             self.train_one_step()
-            if (
-                not self.config.no_save
-            ) and self.step % self.config.log_iters == 0:
+            if (not self.config.no_save) and self.step % self.config.log_iters == 0:
                 self.save()
                 torch.cuda.empty_cache()
 
@@ -308,10 +276,7 @@ class Trainer:
                 else:
                     if not self.disable_wandb:
                         wandb.log(
-                            {
-                                "per iteration time": current_time
-                                - self.previous_time
-                            },
+                            {"per iteration time": current_time - self.previous_time},
                             step=self.step,
                         )
                     self.previous_time = current_time

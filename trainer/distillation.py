@@ -107,28 +107,18 @@ class Trainer:
         if not config.no_visualize or config.load_raw_video:
             self.model.vae = self.model.vae.to(
                 device=self.device,
-                dtype=(
-                    torch.bfloat16 if config.mixed_precision else torch.float32
-                ),
+                dtype=(torch.bfloat16 if config.mixed_precision else torch.float32),
             )
 
         self.generator_optimizer = torch.optim.AdamW(
-            [
-                param
-                for param in self.model.generator.parameters()
-                if param.requires_grad
-            ],
+            [param for param in self.model.generator.parameters() if param.requires_grad],
             lr=config.lr,
             betas=(config.beta1, config.beta2),
             weight_decay=config.weight_decay,
         )
 
         self.critic_optimizer = torch.optim.AdamW(
-            [
-                param
-                for param in self.model.fake_score.parameters()
-                if param.requires_grad
-            ],
+            [param for param in self.model.fake_score.parameters() if param.requires_grad],
             lr=config.lr_critic if hasattr(config, "lr_critic") else config.lr,
             betas=(config.beta1_critic, config.beta2_critic),
             weight_decay=config.weight_decay,
@@ -170,9 +160,7 @@ class Trainer:
         self.generator_ema = None
         if (ema_weight is not None) and (ema_weight > 0.0):
             logging.info(f"Setting up EMA with weight {ema_weight}")
-            self.generator_ema = EMA_FSDP(
-                self.model.generator, decay=ema_weight
-            )
+            self.generator_ema = EMA_FSDP(self.model.generator, decay=ema_weight)
 
         ##############################################################################################################
         # 7. (If resuming) Load the model and optimizer, lr_scheduler, ema's statedicts
@@ -191,12 +179,8 @@ class Trainer:
         if self.step < config.ema_start_step:
             self.generator_ema = None
 
-        self.max_grad_norm_generator = getattr(
-            config, "max_grad_norm_generator", 10.0
-        )
-        self.max_grad_norm_critic = getattr(
-            config, "max_grad_norm_critic", 10.0
-        )
+        self.max_grad_norm_generator = getattr(config, "max_grad_norm_generator", 10.0)
+        self.max_grad_norm_critic = getattr(config, "max_grad_norm_critic", 10.0)
         self.previous_time = None
 
     def save(
@@ -220,9 +204,7 @@ class Trainer:
 
         if self.is_main_process:
             os.makedirs(
-                os.path.join(
-                    self.output_path, f"checkpoint_model_{self.step:06d}"
-                ),
+                os.path.join(self.output_path, f"checkpoint_model_{self.step:06d}"),
                 exist_ok=True,
             )
             torch.save(
@@ -247,14 +229,12 @@ class Trainer:
         batch,
         train_generator,
     ):
-        logging.info(
-            f"""
+        logging.info(f"""
 {self.__class__.__name__} fwdbwd_one_step (
     {batch = }
     {train_generator = }
 )
-"""
-        )
+""")
         self.model.eval()  # prevent any randomness (e.g. dropout)
 
         if self.step % 20 == 0:
@@ -278,20 +258,14 @@ class Trainer:
 
         # Step 2: Extract the conditional infos
         with torch.no_grad():
-            conditional_dict = self.model.text_encoder(
-                text_prompts=text_prompts
-            )
+            conditional_dict = self.model.text_encoder(text_prompts=text_prompts)
 
             if not getattr(self, "unconditional_dict", None):
                 unconditional_dict = self.model.text_encoder(
                     text_prompts=[self.config.negative_prompt] * batch_size
                 )
-                unconditional_dict = {
-                    k: v.detach() for k, v in unconditional_dict.items()
-                }
-                self.unconditional_dict = (
-                    unconditional_dict  # cache the unconditional_dict
-                )
+                unconditional_dict = {k: v.detach() for k, v in unconditional_dict.items()}
+                self.unconditional_dict = unconditional_dict  # cache the unconditional_dict
             else:
                 unconditional_dict = self.unconditional_dict
 
@@ -306,9 +280,7 @@ class Trainer:
             )
 
             generator_loss.backward()
-            generator_grad_norm = self.model.generator.clip_grad_norm_(
-                self.max_grad_norm_generator
-            )
+            generator_grad_norm = self.model.generator.clip_grad_norm_(self.max_grad_norm_generator)
 
             generator_log_dict.update(
                 {
@@ -331,13 +303,9 @@ class Trainer:
         )
 
         critic_loss.backward()
-        critic_grad_norm = self.model.fake_score.clip_grad_norm_(
-            self.max_grad_norm_critic
-        )
+        critic_grad_norm = self.model.fake_score.clip_grad_norm_(self.max_grad_norm_critic)
 
-        critic_log_dict.update(
-            {"critic_loss": critic_loss, "critic_grad_norm": critic_grad_norm}
-        )
+        critic_log_dict.update({"critic_loss": critic_loss, "critic_grad_norm": critic_grad_norm})
 
         return critic_log_dict
 
@@ -350,10 +318,7 @@ class Trainer:
         batch_size = len(prompts)
         if image is not None:
             image = (
-                image.squeeze(0)
-                .unsqueeze(0)
-                .unsqueeze(2)
-                .to(device="cuda", dtype=torch.bfloat16)
+                image.squeeze(0).unsqueeze(0).unsqueeze(2).to(device="cuda", dtype=torch.bfloat16)
             )
 
             # Encode the input image as the first latent
@@ -389,9 +354,7 @@ class Trainer:
         start_step = self.step
 
         while True:
-            TRAIN_GENERATOR = (
-                self.step % self.config.dfake_gen_update_ratio == 0
-            )
+            TRAIN_GENERATOR = self.step % self.config.dfake_gen_update_ratio == 0
 
             # Train the generator
             if TRAIN_GENERATOR:
@@ -423,9 +386,7 @@ class Trainer:
                 and (self.generator_ema is None)
                 and (self.config.ema_weight > 0)
             ):
-                self.generator_ema = EMA_FSDP(
-                    self.model.generator, decay=self.config.ema_weight
-                )
+                self.generator_ema = EMA_FSDP(self.model.generator, decay=self.config.ema_weight)
 
             # Save the model
             if (
@@ -443,19 +404,11 @@ class Trainer:
                 if TRAIN_GENERATOR:
                     wandb_loss_dict.update(
                         {
-                            "generator_loss": generator_log_dict[
-                                "generator_loss"
-                            ]
+                            "generator_loss": generator_log_dict["generator_loss"].mean().item(),
+                            "generator_grad_norm": generator_log_dict["generator_grad_norm"]
                             .mean()
                             .item(),
-                            "generator_grad_norm": generator_log_dict[
-                                "generator_grad_norm"
-                            ]
-                            .mean()
-                            .item(),
-                            "dmdtrain_gradient_norm": generator_log_dict[
-                                "dmdtrain_gradient_norm"
-                            ]
+                            "dmdtrain_gradient_norm": generator_log_dict["dmdtrain_gradient_norm"]
                             .mean()
                             .item(),
                         }
@@ -463,12 +416,8 @@ class Trainer:
 
                 wandb_loss_dict.update(
                     {
-                        "critic_loss": critic_log_dict["critic_loss"]
-                        .mean()
-                        .item(),
-                        "critic_grad_norm": critic_log_dict["critic_grad_norm"]
-                        .mean()
-                        .item(),
+                        "critic_loss": critic_log_dict["critic_loss"].mean().item(),
+                        "critic_grad_norm": critic_log_dict["critic_grad_norm"].mean().item(),
                     }
                 )
 
@@ -488,10 +437,7 @@ class Trainer:
                 else:
                     if not self.disable_wandb:
                         wandb.log(
-                            {
-                                "per iteration time": current_time
-                                - self.previous_time
-                            },
+                            {"per iteration time": current_time - self.previous_time},
                             step=self.step,
                         )
                     self.previous_time = current_time

@@ -22,12 +22,8 @@ def main():
     video's ODE trajectories.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--data_path", type=str, required=True, help="path to ode pairs"
-    )
-    parser.add_argument(
-        "--lmdb_path", type=str, required=True, help="path to lmdb"
-    )
+    parser.add_argument("--data_path", type=str, required=True, help="path to ode pairs")
+    parser.add_argument("--lmdb_path", type=str, required=True, help="path to lmdb")
     parser.add_argument("--num_shards", type=int, default=16, help="num_shards")
 
     args = parser.parse_args()
@@ -62,9 +58,7 @@ def main():
     all_files = []
 
     for part_dir in all_dirs:
-        all_files += sorted(
-            glob.glob(os.path.join(args.data_path, part_dir, "*.pt"))
-        )
+        all_files += sorted(glob.glob(os.path.join(args.data_path, part_dir, "*.pt")))
 
     # 2) Prepare a write transaction for each shard
     for idx, file in tqdm(enumerate(all_files)):
@@ -80,9 +74,7 @@ def main():
 
         shard_id = idx % num_shards
         # write to lmdb file
-        store_arrays_to_lmdb(
-            envs[shard_id], data_dict, start_index=counters[shard_id]
-        )
+        store_arrays_to_lmdb(envs[shard_id], data_dict, start_index=counters[shard_id])
         counters[shard_id] += len(data_dict["prompts"])
         data_shape = data_dict["latents"].shape
 

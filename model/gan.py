@@ -20,16 +20,10 @@ class GAN(SelfForcingModel):
         """
         super().__init__(args, device)
         self.num_frame_per_block = getattr(args, "num_frame_per_block", 1)
-        self.same_step_across_blocks = getattr(
-            args, "same_step_across_blocks", True
-        )
-        self.concat_time_embeddings = getattr(
-            args, "concat_time_embeddings", False
-        )
+        self.same_step_across_blocks = getattr(args, "same_step_across_blocks", True)
+        self.concat_time_embeddings = getattr(args, "concat_time_embeddings", False)
         self.num_class = args.num_class
-        self.relativistic_discriminator = getattr(
-            args, "relativistic_discriminator", False
-        )
+        self.relativistic_discriminator = getattr(args, "relativistic_discriminator", False)
 
         if self.num_frame_per_block > 1:
             self.generator.model.num_frame_per_block = self.num_frame_per_block
@@ -41,9 +35,7 @@ class GAN(SelfForcingModel):
         )
         self.fake_score.model.requires_grad_(True)
 
-        self.independent_first_frame = getattr(
-            args, "independent_first_frame", False
-        )
+        self.independent_first_frame = getattr(args, "independent_first_frame", False)
         if self.independent_first_frame:
             self.generator.model.independent_first_frame = True
         if args.gradient_checkpointing:
@@ -64,9 +56,7 @@ class GAN(SelfForcingModel):
             self.real_guidance_scale = args.guidance_scale
             self.fake_guidance_scale = 0.0
         self.timestep_shift = getattr(args, "timestep_shift", 1.0)
-        self.critic_timestep_shift = getattr(
-            args, "critic_timestep_shift", self.timestep_shift
-        )
+        self.critic_timestep_shift = getattr(args, "critic_timestep_shift", self.timestep_shift)
         self.ts_schedule = getattr(args, "ts_schedule", True)
         self.ts_schedule_max = getattr(args, "ts_schedule_max", False)
         self.min_score_timestep = getattr(args, "min_score_timestep", 0)
@@ -79,9 +69,7 @@ class GAN(SelfForcingModel):
         self.r2_sigma = getattr(args, "r2_sigma", 0.01)
 
         if getattr(self.scheduler, "alphas_cumprod", None) is not None:
-            self.scheduler.alphas_cumprod = self.scheduler.alphas_cumprod.to(
-                device
-            )
+            self.scheduler.alphas_cumprod = self.scheduler.alphas_cumprod.to(device)
         else:
             self.scheduler.alphas_cumprod = None
 
@@ -166,11 +154,7 @@ class GAN(SelfForcingModel):
             critic_timestep = (
                 self.critic_timestep_shift
                 * (critic_timestep / 1000)
-                / (
-                    1
-                    + (self.critic_timestep_shift - 1)
-                    * (critic_timestep / 1000)
-                )
+                / (1 + (self.critic_timestep_shift - 1) * (critic_timestep / 1000))
                 * 1000
             )
 
@@ -199,12 +183,8 @@ class GAN(SelfForcingModel):
             ),
             dim=0,
         )
-        critic_timestep = torch.concatenate(
-            (critic_timestep, critic_timestep), dim=0
-        )
-        noisy_latent = torch.concatenate(
-            (noisy_fake_latent, noisy_real_latent), dim=0
-        )
+        critic_timestep = torch.concatenate((critic_timestep, critic_timestep), dim=0)
+        noisy_latent = torch.concatenate((noisy_fake_latent, noisy_real_latent), dim=0)
         _, _, noisy_logit = self.fake_score(
             noisy_image_or_video=noisy_latent,
             conditional_dict=conditional_dict,
@@ -215,15 +195,10 @@ class GAN(SelfForcingModel):
         noisy_fake_logit, noisy_real_logit = noisy_logit.chunk(2, dim=0)
 
         if not self.relativistic_discriminator:
-            gan_G_loss = (
-                F.softplus(-noisy_fake_logit.float()).mean() * self.gan_g_weight
-            )
+            gan_G_loss = F.softplus(-noisy_fake_logit.float()).mean() * self.gan_g_weight
         else:
             relative_fake_logit = noisy_fake_logit - noisy_real_logit
-            gan_G_loss = (
-                F.softplus(-relative_fake_logit.float()).mean()
-                * self.gan_g_weight
-            )
+            gan_G_loss = F.softplus(-relative_fake_logit.float()).mean() * self.gan_g_weight
 
         return gan_G_loss
 
@@ -289,11 +264,7 @@ class GAN(SelfForcingModel):
             critic_timestep = (
                 self.critic_timestep_shift
                 * (critic_timestep / 1000)
-                / (
-                    1
-                    + (self.critic_timestep_shift - 1)
-                    * (critic_timestep / 1000)
-                )
+                / (1 + (self.critic_timestep_shift - 1) * (critic_timestep / 1000))
                 * 1000
             )
 
@@ -322,13 +293,9 @@ class GAN(SelfForcingModel):
             dim=0,
         )
         _, _, noisy_logit = self.fake_score(
-            noisy_image_or_video=torch.concatenate(
-                (noisy_fake_latent, noisy_real_latent), dim=0
-            ),
+            noisy_image_or_video=torch.concatenate((noisy_fake_latent, noisy_real_latent), dim=0),
             conditional_dict=conditional_dict_cloned,
-            timestep=torch.concatenate(
-                (critic_timestep, critic_timestep), dim=0
-            ),
+            timestep=torch.concatenate((critic_timestep, critic_timestep), dim=0),
             classify_mode=True,
             concat_time_embeddings=self.concat_time_embeddings,
         )
@@ -347,21 +314,15 @@ class GAN(SelfForcingModel):
         # R1 regularization
         if self.r1_weight > 0.0:
             noisy_real_latent_perturbed = noisy_real_latent.clone()
-            epison_real = self.r1_sigma * torch.randn_like(
-                noisy_real_latent_perturbed
-            )
-            noisy_real_latent_perturbed = (
-                noisy_real_latent_perturbed + epison_real
-            )
+            epison_real = self.r1_sigma * torch.randn_like(noisy_real_latent_perturbed)
+            noisy_real_latent_perturbed = noisy_real_latent_perturbed + epison_real
             noisy_real_logit_perturbed = self._run_cls_pred_branch(
                 noisy_image_or_video=noisy_real_latent_perturbed,
                 conditional_dict=conditional_dict,
                 timestep=critic_timestep,
             )
 
-            r1_grad = (
-                noisy_real_logit_perturbed - noisy_real_logit
-            ) / self.r1_sigma
+            r1_grad = (noisy_real_logit_perturbed - noisy_real_logit) / self.r1_sigma
             r1_loss = self.r1_weight * torch.mean((r1_grad) ** 2)
         else:
             r1_loss = torch.zeros_like(gan_D_loss)
@@ -369,21 +330,15 @@ class GAN(SelfForcingModel):
         # R2 regularization
         if self.r2_weight > 0.0:
             noisy_fake_latent_perturbed = noisy_fake_latent.clone()
-            epison_generated = self.r2_sigma * torch.randn_like(
-                noisy_fake_latent_perturbed
-            )
-            noisy_fake_latent_perturbed = (
-                noisy_fake_latent_perturbed + epison_generated
-            )
+            epison_generated = self.r2_sigma * torch.randn_like(noisy_fake_latent_perturbed)
+            noisy_fake_latent_perturbed = noisy_fake_latent_perturbed + epison_generated
             noisy_fake_logit_perturbed = self._run_cls_pred_branch(
                 noisy_image_or_video=noisy_fake_latent_perturbed,
                 conditional_dict=conditional_dict,
                 timestep=critic_timestep,
             )
 
-            r2_grad = (
-                noisy_fake_logit_perturbed - noisy_fake_logit
-            ) / self.r2_sigma
+            r2_grad = (noisy_fake_logit_perturbed - noisy_fake_logit) / self.r2_sigma
             r2_loss = self.r2_weight * torch.mean((r2_grad) ** 2)
         else:
             r2_loss = torch.zeros_like(r2_loss)
