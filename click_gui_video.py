@@ -53,6 +53,8 @@ from stream_inference_wrapper import StreamInferenceWrapper
 from stream_drag_inference_wrapper import StreamDragInferenceWrapper
 from utils.dataset import TextDataset
 
+from video_operations import generate_video, optimize_video
+
 # from compute_objmc import visualize_ground_truth_from_trajectory_file
 
 
@@ -105,46 +107,6 @@ def apply_target_mask_to_image(
         mask_color=(255, 64, 64),
         alpha=0.5,
     )
-
-
-def begin_generate(
-    stream_inference_model: StreamInferenceWrapper,
-    prompt_index: int,
-    prompt,
-    start_block_index,
-    block_number,
-    output_dir: str | Path,
-):
-    if start_block_index == 0:
-        set_seed(stream_inference_model.seed)
-    end_block_index = start_block_index + block_number
-    with torch.no_grad():
-        all_video, current_video = stream_inference_model.inference(
-            start_block_index=start_block_index,
-            end_block_index=end_block_index,
-            prompt=prompt,
-        )
-    save_dir = Path(output_dir) / f"{prompt_index:04d}-{prompt[:50].replace(' ', '_')}"
-    save_dir.mkdir(parents=True, exist_ok=True)
-
-    save_prefix = f"block_{start_block_index}_{end_block_index}"
-    save_video_path = str(save_dir / f"{save_prefix}.mp4")
-    write_video(
-        save_video_path,
-        current_video,
-        fps=8,
-    )
-    if start_block_index > 0:
-        save_prefix_all = f"block_0_{end_block_index}"
-        save_full_video_path = str(save_dir / f"{save_prefix_all}.mp4")
-        write_video(
-            save_full_video_path,
-            all_video,
-            fps=8,
-        )
-    else:
-        save_full_video_path = save_video_path
-    return save_full_video_path, end_block_index
 
 
 def get_video_last_frame(
@@ -647,123 +609,6 @@ def save_trajectory(
     trajectory_image.save(save_dir / f"{save_prefix}_trajectory.png")
 
 
-def begin_animation(
-    stream_drag_inference_model: StreamDragInferenceWrapper,
-    start_block_index: int,
-    multiple_trajectory: MultiTrajectory,
-):
-    end_block_index = start_block_index + multiple_trajectory.block_number
-    with torch.no_grad():
-        all_video, current_video = stream_drag_inference_model.inference(
-            start_block_index=start_block_index,
-            end_block_index=end_block_index,
-            prompt=multiple_trajectory.prompt,
-            # below are for drag optimization
-            multiple_trajectory=multiple_trajectory,
-        )
-
-    return (
-        all_video,
-        current_video,
-        end_block_index,
-    )
-
-
-def begin_drag(
-    stream_drag_inference_model: StreamDragInferenceWrapper,
-    start_block_index,
-    multiple_trajectory: MultiTrajectory,
-):
-    with torch.no_grad():
-        all_video, current_video = stream_drag_inference_model.inference(
-            start_block_index=start_block_index - 1,
-            end_block_index=start_block_index,
-            prompt=multiple_trajectory.prompt,
-            # below are for drag optimization
-            multiple_trajectory=multiple_trajectory,
-        )
-
-    return all_video, current_video
-
-
-def begin_optimize(
-    stream_drag_inference_model: StreamDragInferenceWrapper,
-    output_dir: str | Path,
-    prompt_index: int,
-    start_block_index: int,
-    multi_trajectory: MultiTrajectory,
-):
-    print(
-        f"""
-begin_optimize
-    {multi_trajectory = }
-"""
-    )
-
-    prompt = multi_trajectory.prompt
-
-    if multi_trajectory.drag_or_animation_select == "Animation":
-        (
-            all_video,
-            current_video,
-            end_block_index,
-        ) = begin_animation(
-            stream_drag_inference_model,
-            start_block_index=start_block_index,
-            multiple_trajectory=multi_trajectory,
-        )
-    elif multi_trajectory.drag_or_animation_select == "Drag":
-        all_video, current_video = begin_drag(
-            stream_drag_inference_model,
-            start_block_index=start_block_index,
-            multiple_trajectory=multi_trajectory,
-        )
-        end_block_index = start_block_index
-
-    save_dir = Path(output_dir) / f"{prompt_index:04d}-{prompt[:50].replace(' ', '_')}"
-    save_dir.mkdir(parents=True, exist_ok=True)
-
-    save_prefix = (
-        f"block_{start_block_index}_{multi_trajectory.drag_or_animation_select}_{end_block_index}"
-    )
-    save_video_path = str(save_dir / f"{save_prefix}.mp4")
-    write_video(
-        save_video_path,
-        current_video,
-        fps=8,
-    )
-    if start_block_index > 0:
-        save_prefix_all = f"block_0_{start_block_index}_{multi_trajectory.drag_or_animation_select}_{end_block_index}"
-        save_full_video_path = str(save_dir / f"{save_prefix_all}.mp4")
-        write_video(
-            save_full_video_path,
-            all_video,
-            fps=8,
-        )
-    else:
-        save_full_video_path = save_video_path
-    # if drag_animation_select == "Animation":
-    # visualize_ground_truth_from_trajectory_file(
-    #     all_video[
-    #         max(
-    #             stream_inference_model.block_to_video_index(
-    #                 start_block_index
-    #             )
-    #             - 1,
-    #             0,
-    #         ) :
-    #     ],
-    #     reference_frame_index=0,
-    #     label_root=label_dir,
-    #     start_block_index=start_block_index,
-    #     drag_animation_select=drag_animation_select,
-    #     save_dir=save_dir,
-    #     prefix=f"{save_prefix}",
-    #     visualize=True,
-    # )
-    return save_full_video_path, end_block_index
-
-
 def clear_current_trajectory(
     idx: int,
     trajectory: MultiTrajectory,
@@ -958,7 +803,7 @@ def create_generate_video_ui(
         video_display = gr.Video()
 
     begin_generate_button.click(
-        fn=lambda pi, p, sbi, bn: begin_generate(
+        fn=lambda pi, p, sbi, bn: generate_video(
             stream_inference_model=stream_drag_inference,
             prompt_index=pi,
             prompt=p,
@@ -1515,7 +1360,7 @@ def create_ui(
                 value="Step 14: Click Here to Begin Optimize, Wait for a Moment and the Dragged/Animated Video will be Displayed Above",
             )
         begin_optimize_button.click(
-            fn=lambda pi, sbi, st: begin_optimize(
+            fn=lambda pi, sbi, st: optimize_video(
                 stream_drag_inference_model=stream_drag_inference,
                 output_dir=output_dir,
                 prompt_index=pi,

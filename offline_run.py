@@ -9,6 +9,7 @@ from torchvision.io import write_video
 from optimize_utils import MultiTrajectory
 from stream_drag_inference_wrapper import StreamDragInferenceWrapper
 from utils.misc import set_seed
+from video_operations import run_optimization, save_videos
 
 
 def build_stream_drag_inference(
@@ -32,66 +33,6 @@ def build_stream_drag_inference(
         use_ema=use_ema,
         seed=seed,
     )
-
-
-def run_optimization(
-    model: StreamDragInferenceWrapper,
-    trajectory: MultiTrajectory,
-    start_block_index: int,
-) -> tuple[torch.Tensor, torch.Tensor, int]:
-    mode = trajectory.drag_or_animation_select
-
-    if mode == "Animation":
-        end_block_index = start_block_index + int(trajectory.block_number)
-        with torch.no_grad():
-            all_video, current_video = model.inference(
-                start_block_index=start_block_index,
-                end_block_index=end_block_index,
-                prompt=trajectory.prompt,
-                multiple_trajectory=trajectory,
-            )
-        return all_video, current_video, end_block_index
-
-    if start_block_index <= 0:
-        raise ValueError("start_block_index must be > 0 for drag mode.")
-
-    end_block_index = start_block_index
-    with torch.no_grad():
-        all_video, current_video = model.inference(
-            start_block_index=start_block_index - 1,
-            end_block_index=start_block_index,
-            prompt=trajectory.prompt,
-            multiple_trajectory=trajectory,
-        )
-    return all_video, current_video, end_block_index
-
-
-def save_videos(
-    all_video: torch.Tensor,
-    current_video: torch.Tensor,
-    output_dir: Path,
-    prompt_index: int,
-    prompt: str,
-    start_block_index: int,
-    end_block_index: int,
-    mode: str,
-    fps: int,
-) -> Path:
-    safe_prompt = (prompt or "no_prompt")[:50].replace(" ", "_")
-    save_dir = output_dir / f"{prompt_index:04d}-{safe_prompt}"
-    save_dir.mkdir(parents=True, exist_ok=True)
-
-    save_prefix = f"block_{start_block_index}_{mode}_{end_block_index}"
-    current_video_path = save_dir / f"{save_prefix}.mp4"
-    write_video(str(current_video_path), current_video, fps=fps)
-
-    if start_block_index > 0:
-        full_prefix = f"block_0_{start_block_index}_{mode}_{end_block_index}"
-        full_video_path = save_dir / f"{full_prefix}.mp4"
-        write_video(str(full_video_path), all_video, fps=fps)
-        return full_video_path
-
-    return current_video_path
 
 
 def main() -> None:
