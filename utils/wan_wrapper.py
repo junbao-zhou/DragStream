@@ -1,5 +1,6 @@
 import types
 from typing import List, Optional
+from omegaconf import DictConfig, OmegaConf
 import torch
 from torch import nn
 
@@ -314,6 +315,7 @@ class WanDiffusionWrapper(torch.nn.Module):
         clean_x: Optional[torch.Tensor] = None,
         aug_t: Optional[torch.Tensor] = None,
         cache_start: Optional[int] = None,
+        model_config: DictConfig | None = None,
     ) -> torch.Tensor:
         prompt_embeds = conditional_dict["prompt_embeds"]
 
@@ -335,7 +337,13 @@ class WanDiffusionWrapper(torch.nn.Module):
                 crossattn_cache=crossattn_cache,
                 current_start=current_start,
                 cache_start=cache_start,
-            ).permute(0, 2, 1, 3, 4)
+                model_config=model_config,
+            )
+            if model_config is not None and OmegaConf.select(
+                model_config, "drag_optim_config.record_feature_block_indexes"
+            ):
+                flow_pred, record_features = flow_pred
+            flow_pred = flow_pred.permute(0, 2, 1, 3, 4)
         else:
             if clean_x is not None:
                 # teacher forcing
@@ -374,6 +382,13 @@ class WanDiffusionWrapper(torch.nn.Module):
             xt=noisy_image_or_video.flatten(0, 1),
             timestep=timestep.flatten(0, 1),
         ).unflatten(0, flow_pred.shape[:2])
+
+        if model_config is not None and OmegaConf.select(
+            model_config, "drag_optim_config.record_feature_block_indexes"
+        ):
+            if logits is not None:
+                return flow_pred, (pred_x0, record_features), logits
+            return flow_pred, (pred_x0, record_features)
 
         if logits is not None:
             return flow_pred, pred_x0, logits

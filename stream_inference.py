@@ -7,6 +7,7 @@ from torchvision.io import write_video
 from torch.utils.data import DataLoader, SequentialSampler
 
 from stream_inference_wrapper import StreamInferenceWrapper
+# from stream_drag_inference_wrapper import StreamDragInferenceWrapper
 from utils.dataset import TextDataset
 from utils.misc import set_seed
 from hydra import initialize, compose
@@ -21,6 +22,7 @@ def main():
 
     config_dir = "configs"
     stream_config_name = "self_forcing_dmd_vsink_stream"
+    # stream_config_name = "self_forcing_dmd_vsink_stream_drag"
 
     data_path = "prompts/MovieGenVideoBench_extended.txt"
 

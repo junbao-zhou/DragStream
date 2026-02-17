@@ -1,4 +1,8 @@
 import logging
+
+from omegaconf import DictConfig, OmegaConf
+import omegaconf
+from frequency_utils import butterworth_low_pass_filter
 from wan.modules.attention import attention
 from wan.modules.model import (
     WanRMSNorm,
@@ -104,6 +108,8 @@ class CausalWanSelfAttention(nn.Module):
         kv_cache=None,
         current_start=0,
         cache_start=None,
+        model_config: DictConfig | None = None,
+        is_record_feature=False,
     ):
         r"""
         Args:
@@ -214,9 +220,67 @@ class CausalWanSelfAttention(nn.Module):
         kv_cache["global_end_index"].fill_(current_end)
         kv_cache["local_end_index"].fill_(local_end_index)
 
+        original_k = kv_cache["k"][
+            :,
+            max(0, local_end_index - self.max_attention_size) : local_end_index,
+        ]
+        original_v = kv_cache["v"][
+            :,
+            max(0, local_end_index - self.max_attention_size) : local_end_index,
+        ]
+        if is_record_feature:
+            record_feature = {}
+            record_feature["original"] = attention(
+                roped_query,
+                original_k.clone().detach(),
+                original_v.clone().detach(),
+            ).flatten(2)
+            # print(f"{grid_sizes = }")
+            record_feature["original"] = record_feature["original"].reshape(
+                b, grid_sizes[0][0], grid_sizes[0][1], grid_sizes[0][2], -1
+            )
+
+            def butterworth_low_pass_filter_kv(
+                kv,
+                cutoff,
+            ):
+                reshaped_kv = kv.reshape(
+                    [1, -1, grid_sizes[0][1], grid_sizes[0][2], 12, 128]
+                )
+                return (
+                    butterworth_low_pass_filter(
+                        reshaped_kv.detach(),
+                        dims=[2, 3],
+                        cutoff=cutoff,
+                        order=4,
+                    )
+                    .reshape(kv.shape)
+                    .detach()
+                )
+
+            if len(model_config.drag_optim_config.feature_fft_cutoff) > 0 and (
+                not roped_query.requires_grad
+            ):
+                for cutoff in model_config.drag_optim_config.feature_fft_cutoff:
+                    fft_k = butterworth_low_pass_filter_kv(original_k, cutoff)
+                    fft_v = butterworth_low_pass_filter_kv(original_v, cutoff)
+                    record_feature[f"fft_cutoff_{cutoff}"] = (
+                        attention(roped_query, fft_k, fft_v)
+                        .flatten(2)
+                        .reshape(
+                            b,
+                            grid_sizes[0][0],
+                            grid_sizes[0][1],
+                            grid_sizes[0][2],
+                            -1,
+                        )
+                    )
+
         # output
         x = x.flatten(2)
         x = self.o(x)
+        if is_record_feature:
+            return x, record_feature
         return x
 
 
@@ -280,6 +344,8 @@ class CausalWanAttentionBlock(nn.Module):
         crossattn_cache=None,
         current_start=0,
         cache_start=None,
+        model_config: DictConfig | None = None,
+        is_record_feature: bool = False,
     ):
         r"""
         Args:
@@ -309,7 +375,11 @@ class CausalWanAttentionBlock(nn.Module):
             kv_cache,
             current_start,
             cache_start,
+            model_config=model_config,
+            is_record_feature=is_record_feature,
         )
+        if is_record_feature:
+            y, record_feature = y
 
         # with amp.autocast(dtype=torch.float32):
         x = x + (
@@ -340,6 +410,8 @@ class CausalWanAttentionBlock(nn.Module):
             return x
 
         x = cross_attn_ffn(x, context, context_lens, e, crossattn_cache)
+        if is_record_feature:
+            return x, record_feature
         return x
 
 
@@ -820,6 +892,7 @@ class CausalWanModel(ModelMixin, ConfigMixin):
         crossattn_cache: dict = None,
         current_start: int = 0,
         cache_start: int = 0,
+        model_config: DictConfig | None = None,
     ):
         r"""
         Run the diffusion model with kv caching.
@@ -918,6 +991,19 @@ class CausalWanModel(ModelMixin, ConfigMixin):
 
             return custom_forward
 
+        record_feature_block_indexes = []
+        if model_config is not None and OmegaConf.select(
+            model_config, "drag_optim_config.record_feature_block_indexes"
+        ):
+            assert isinstance(
+                model_config.drag_optim_config.record_feature_block_indexes,
+                omegaconf.listconfig.ListConfig,
+            )
+            record_feature_block_indexes = list(
+                model_config.drag_optim_config.record_feature_block_indexes
+            )
+            # record_features will be a dict[str|float|... key] -> dict[block_index] -> Tensor
+            record_features = {}
         for block_index, block in enumerate(self.blocks):
             if torch.is_grad_enabled() and self.gradient_checkpointing:
                 kwargs.update(
@@ -934,20 +1020,33 @@ class CausalWanModel(ModelMixin, ConfigMixin):
                     use_reentrant=False,
                 )
             else:
+                is_record_feature = block_index in record_feature_block_indexes
                 kwargs.update(
                     {
                         "kv_cache": kv_cache[block_index],
                         "crossattn_cache": crossattn_cache[block_index],
                         "current_start": current_start,
                         "cache_start": cache_start,
+                        "model_config": model_config,
+                        "is_record_feature": is_record_feature,
                     }
                 )
                 x = block(x, **kwargs)
+                if is_record_feature:
+                    x, record_feature = x
+                    record_features[block_index] = record_feature
+                    del record_feature
+        del block_index
+        del block
+        # Break line for the previous log
+        print(f"")
 
         # head
         x = self.head(x, e.unflatten(dim=0, sizes=t.shape).unsqueeze(2))
         # unpatchify
         x = self.unpatchify(x, grid_sizes)
+        if record_feature_block_indexes:
+            return torch.stack(x), record_features
         return torch.stack(x)
 
     def _forward_train(

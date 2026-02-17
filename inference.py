@@ -36,7 +36,7 @@ sys.argv.extend(
     [
         "--output_folder",
         f"outputs/{output_latent_frame_number}-{config_name}-seed{seed}",
-        # f"outputs-test/{output_latent_frame_number}-{config_name}",
+        # f"outputs-test/{output_latent_frame_number}-{config_name}-seed{seed}",
         "--config_dir",
         "configs",
         "--config_name",

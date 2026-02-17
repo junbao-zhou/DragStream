@@ -1,109 +1,91 @@
 <p align="center">
-<h1 align="center">Self Forcing</h1>
-<h3 align="center">Bridging the Train-Test Gap in Autoregressive Video Diffusion</h3>
+<h1 align="center">DragStream</h1>
+<h3 align="center">Streaming Drag-Oriented Interactive Video Manipulation: Drag Anything, Anytime!</h3>
 </p>
 <p align="center">
   <p align="center">
-    <a href="https://www.xunhuang.me/">Xun Huang</a><sup>1</sup>
+    <a>Junbao Zhou</a><sup>1</sup>
     ·
-    <a href="https://zhengqili.github.io/">Zhengqi Li</a><sup>1</sup>
+    <a>Yuan Zhou</a><sup>1</sup>
     ·
-    <a href="https://guandehe.github.io/">Guande He</a><sup>2</sup>
+    <a>Kesen Zhao</a><sup>2</sup>
     ·
-    <a href="https://mingyuanzhou.github.io/">Mingyuan Zhou</a><sup>2</sup>
+    <a>Qingshan Xu</a><sup>2</sup>
     ·
-    <a href="https://research.adobe.com/person/eli-shechtman/">Eli Shechtman</a><sup>1</sup><br>
-    <sup>1</sup>Adobe Research <sup>2</sup>UT Austin
+    <a>Beier Zhu</a><sup>1</sup>
+    ·
+    <a>Richang Hong</a><sup>2</sup>
+    ·
+    <a>Hanwang Zhang</a><sup>1</sup><br>
+    <sup>1</sup>Nanyang Technological University <sup>2</sup>Hefei University of Technology
   </p>
-  <h3 align="center"><a href="https://arxiv.org/abs/2506.08009">Paper</a> | <a href="https://self-forcing.github.io">Website</a> | <a href="https://huggingface.co/gdhe17/Self-Forcing/tree/main">Models (HuggingFace)</a></h3>
+  <h3 align="center"><a href="https://arxiv.org/abs/2510.03550">Paper</a> | <a href="https://junbao-zhou.github.io/DragStream.github.io/">Website</a></h3>
 </p>
 
 ---
 
-Self Forcing trains autoregressive video diffusion models by **simulating the inference process during training**, performing autoregressive rollout with KV caching. It resolves the train-test distribution mismatch and enables **real-time, streaming video generation on a single RTX 4090** while matching the quality of state-of-the-art diffusion models.
+Achieving streaming, fine-grained control over the outputs of autoregressive video diffusion models remains challenging, making it difficult to ensure that they consistently align with user expectations. To bridge this gap, we propose **stReaming drag-oriEnted interactiVe vidEo manipuLation (REVEL)**, a new task that enables users to modify generated videos *anytime* on *anything* via fine-grained, interactive drag. Beyond DragVideo and SG-I2V, REVEL unifies drag-style video manipulation as editing and animating video frames with both supporting user-specified translation, deformation, and rotation effects, making drag operations versatile. In resolving REVEL, we observe: *i*) drag-induced perturbations accumulate in latent space, causing severe latent distribution drift that halts the drag process; *ii*) streaming drag is easily disturbed by context frames, thereby yielding visually unnatural outcomes. We thus propose a training-free approach, **DragStream**, comprising: *i*) an adaptive distribution self-rectification strategy that leverages neighboring frames' statistics to effectively constrain the drift of latent embeddings; *ii*) a spatial-frequency selective optimization mechanism, allowing the model to fully exploit contextual information while mitigating its interference via selectively propagating visual cues along generation. Our method can be seamlessly integrated into existing autoregressive video diffusion models, and extensive experiments firmly demonstrate the effectiveness of our DragStream
 
 ---
 
-
-https://github.com/user-attachments/assets/7548c2db-fe03-4ba8-8dd3-52d2c6160739
-
+![alt text](image.png)
 
 ## Requirements
 We tested this repo on the following setup:
-* Nvidia GPU with at least 24 GB memory (RTX 4090, A100, and H100 are tested).
+* Nvidia GPU with at least 40 GB memory.
 * Linux operating system.
 * 64 GB RAM.
 
 Other hardware setup could also work but hasn't been tested.
 
 ## Installation
+
+### 1. Follow Self-Forcing to Install Dependencies
+
 Create a conda environment and install dependencies:
 ```
-conda create -n self_forcing python=3.10 -y
-conda activate self_forcing
+conda create -n drag-stream python=3.10 -y
+conda activate drag-stream
 pip install -r requirements.txt
 pip install flash-attn --no-build-isolation
 python setup.py develop
 ```
 
-## Quick Start
-### Download checkpoints
+### 2. Follow Self-Forcing to Download Checkpoints
 ```
-huggingface-cli download Wan-AI/Wan2.1-T2V-1.3B --local-dir-use-symlinks False --local-dir wan_models/Wan2.1-T2V-1.3B
-huggingface-cli download gdhe17/Self-Forcing checkpoints/self_forcing_dmd.pt --local-dir .
+huggingface-cli download Wan-AI/Wan2.1-T2V-1.3B --local-dir wan_models/Wan2.1-T2V-1.3B
+huggingface-cli download gdhe17/Self-Forcing checkpoints --local-dir ./checkpoints
 ```
 
-### GUI demo
-```
-python demo.py
-```
-Note:
-* **Our model works better with long, detailed prompts** since it's trained with such prompts. We will integrate prompt extension into the codebase (similar to [Wan2.1](https://github.com/Wan-Video/Wan2.1/tree/main?tab=readme-ov-file#2-using-prompt-extention)) in the future. For now, it is recommended to use third-party LLMs (such as GPT-4o) to extend your prompt before providing to the model.
-* You may want to adjust FPS so it plays smoothly on your device.
-* The speed can be improved by enabling `torch.compile`, [TAEHV-VAE](https://github.com/madebyollin/taehv/), or using FP8 Linear layers, although the latter two options may sacrifice quality. It is recommended to use `torch.compile` if possible and enable TAEHV-VAE if further speedup is needed.
+### 3. Follow Segment-Anything to Install SAM
 
-### CLI Inference
-Example inference script using the chunk-wise autoregressive checkpoint trained with DMD:
 ```
-python inference.py \
-    --config_path configs/self_forcing_dmd.yaml \
-    --output_folder videos/self_forcing_dmd \
-    --checkpoint_path checkpoints/self_forcing_dmd.pt \
-    --data_path prompts/MovieGenVideoBench_extended.txt \
-    --use_ema
+git clone git@github.com:facebookresearch/segment-anything.git
+cd segment-anything; pip install -e .
 ```
-Other config files and corresponding checkpoints can be found in [configs](configs) folder and our [huggingface repo](https://huggingface.co/gdhe17/Self-Forcing/tree/main/checkpoints).
 
-## Training
-### Download text prompts and ODE initialized checkpoint
-```
-huggingface-cli download gdhe17/Self-Forcing checkpoints/ode_init.pt --local-dir .
-huggingface-cli download gdhe17/Self-Forcing vidprom_filtered_extended.txt --local-dir prompts
-```
-Note: Our training algorithm (except for the GAN version) is data-free (**no video data is needed**). For now, we directly provide the ODE initialization checkpoint and will add more instructions on how to perform ODE initialization in the future (which is identical to the process described in the [CausVid](https://github.com/tianweiy/CausVid) repo).
+### 4. Follow Segment-Anything to Download SAM Checkpoint
 
-### Self Forcing Training with DMD
+- [ViT-H SAM model.](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth)
+
+## Drag/Animate Video with GUI
+
 ```
-torchrun --nnodes=8 --nproc_per_node=8 --rdzv_id=5235 \
-  --rdzv_backend=c10d \
-  --rdzv_endpoint $MASTER_ADDR \
-  train.py \
-  --config_path configs/self_forcing_dmd.yaml \
-  --logdir logs/self_forcing_dmd \
-  --disable-wandb
+python click_gui_video.py
 ```
-Our training run uses 600 iterations and completes in under 2 hours using 64 H100 GPUs. By implementing gradient accumulation, it should be possible to reproduce the results in less than 16 hours using 8 H100 GPUs.
+
+## CLI Inference with Saved Trajectories
+
+```
+python offline_run.py
+```
+
+## Reproducibility
+
+To ensure every Drag/Animation is performed on the same generated video given the same input conditions, we set the random seed before the initialization of random noise and before the generation process.
+
+Please refer to the `set_seed(seed)` in `inference.py`, `stream_inference.py`, `click_gui_video.py`, and `offline_run.py` for details.
+
 
 ## Acknowledgements
-This codebase is built on top of the open-source implementation of [CausVid](https://github.com/tianweiy/CausVid) by [Tianwei Yin](https://tianweiy.github.io/) and the [Wan2.1](https://github.com/Wan-Video/Wan2.1) repo.
-
-## Citation
-If you find this codebase useful for your research, please kindly cite our paper:
-```
-@article{huang2025selfforcing,
-  title={Self Forcing: Bridging the Train-Test Gap in Autoregressive Video Diffusion},
-  author={Huang, Xun and Li, Zhengqi and He, Guande and Zhou, Mingyuan and Shechtman, Eli},
-  journal={arXiv preprint arXiv:2506.08009},
-  year={2025}
-}
-```
+This codebase is built on top of the open-source implementation of [Self-Forcing](https://self-forcing.github.io/).

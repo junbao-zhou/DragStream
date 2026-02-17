@@ -1,0 +1,33 @@
+defaults:
+  - self_forcing_dmd_vsink_stream
+  - _self_
+
+drag_optim_config:
+  record_feature_block_indexes:
+    - 12
+    - 13
+    - 14
+    - 15
+
+  optimize_denoising_steps_indexes:
+    - 1
+
+  optimize_iter: 5
+  optimize_lr: 0.03
+
+  translation_step: 16.0
+  rotation_step: 8.0
+
+  normalize_latent_after_drag_optimize: True
+  normalize_latent_after_post_merge: True
+  dynamic_chunk_normalization_block_number: 2
+
+  feature_scaling_factor: 2.0
+
+  gradient_gaussian_padding: 1.5
+  gradient_gaussian_sigma: 1.5
+
+  feature_fft_cutoff:
+    - 0.2
+    - 0.4
+    - 0.6
