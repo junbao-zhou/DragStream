@@ -19,7 +19,11 @@
     <a>Hanwang Zhang</a><sup>1</sup><br>
     <sup>1</sup>Nanyang Technological University <sup>2</sup>Hefei University of Technology
   </p>
-  <h3 align="center"><a href="https://arxiv.org/abs/2510.03550">Paper</a> | <a href="https://junbao-zhou.github.io/DragStream.github.io/">Website</a></h3>
+  <h3 align="center">
+    <a href="https://arxiv.org/abs/2510.03550"><img src="https://img.shields.io/badge/Arxiv-2510.03550-B31B1B.svg?logo=arXiv"></a>
+    <a href="https://junbao-zhou.github.io/DragStream.github.io/"><img src="https://img.shields.io/badge/Project_Page-Lots_of_Demos-Green"></a>
+    <br>
+  </h3>
 </p>
 
 ---
@@ -28,7 +32,7 @@ Achieving streaming, fine-grained control over the outputs of autoregressive vid
 
 ---
 
-![alt text](image.png)
+![alt text](asset/figure1.png)
 
 ## Requirements
 We tested this repo on the following setup:
