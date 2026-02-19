@@ -19,9 +19,10 @@
     <sup>1</sup>Nanyang Technological University <sup>2</sup>Hefei University of Technology
   </p>
   <h3 align="center">
-    <a href="https://openreview.net/"><img src="https://img.shields.io/badge/ICLR-2026-4B44CE.svg"></a>
+    <a href=""><img src="https://img.shields.io/badge/ICLR-2026-4B44CE.svg"></a>
     <a href="https://arxiv.org/abs/2510.03550"><img src="https://img.shields.io/badge/Arxiv-2510.03550-B31B1B.svg?logo=arXiv"></a>
     <a href="https://junbao-zhou.github.io/DragStream.github.io/"><img src="https://img.shields.io/badge/Project_Page-Lots_of_Demos-Green"></a>
+    <a href="https://huggingface.co/spaces/junbaozhou/DragStream"><img src="https://img.shields.io/badge/HuggingFace-Space-yellow?logo=huggingface" alt="Open in Hugging Face Spaces"></a>
     <br>
   </h3>
 </p>
@@ -33,6 +34,16 @@ Achieving streaming, fine-grained control over the outputs of autoregressive vid
 ---
 
 ![alt text](asset/figure1.png)
+
+## 🤗 Interactive Demo
+
+<a href="https://huggingface.co/spaces/junbaozhou/DragStream">
+  <img src="https://img.shields.io/badge/HuggingFace-Space-yellow?logo=huggingface" alt="Open in Hugging Face Spaces">
+</a>
+
+Click the preview below to launch the live demo:
+
+[![DragStream Hugging Face Demo](asset/huggingface-demo.png)](https://huggingface.co/spaces/junbaozhou/DragStream)
 
 ## Requirements
 We tested this repo on the following setup:
