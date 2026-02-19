@@ -71,7 +71,7 @@ cd segment-anything; pip install -e .
 ## Drag/Animate Video with GUI
 
 ```
-python click_gui_video.py
+python app.py
 ```
 
 ## CLI Inference with Saved Trajectories
