@@ -1,6 +1,5 @@
 <p align="center">
-<h1 align="center">DragStream</h1>
-<h3 align="center">Streaming Drag-Oriented Interactive Video Manipulation: Drag Anything, Anytime!</h3>
+<h1 align="center">DragStream: Streaming Drag-Oriented Interactive Video Manipulation: Drag Anything, Anytime!</h1>
 </p>
 <p align="center">
   <p align="center">
@@ -20,6 +19,7 @@
     <sup>1</sup>Nanyang Technological University <sup>2</sup>Hefei University of Technology
   </p>
   <h3 align="center">
+    <a href="https://openreview.net/"><img src="https://img.shields.io/badge/ICLR-2026-4B44CE.svg"></a>
     <a href="https://arxiv.org/abs/2510.03550"><img src="https://img.shields.io/badge/Arxiv-2510.03550-B31B1B.svg?logo=arXiv"></a>
     <a href="https://junbao-zhou.github.io/DragStream.github.io/"><img src="https://img.shields.io/badge/Project_Page-Lots_of_Demos-Green"></a>
     <br>
