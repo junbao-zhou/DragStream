@@ -1,0 +1,49 @@
+{
+  "block_number": 1,
+  "prompt": "A close-up shot of a Victoria crowned pigeon in a naturalistic wildlife photography style, showcasing its striking blue plumage and red chest. The bird\u2019s crest is adorned with delicate, lacy feathers, and its eye is a striking red color, adding to its regal and majestic appearance. The pigeon\u2019s head is tilted slightly to the side, giving it a regal gaze. The background is blurred, emphasizing the bird\u2019s striking beauty against a soft, muted backdrop. The lighting highlights the bird\u2019s feathers, creating a vibrant and lifelike image.",
+  "drag_or_animation_select": "Drag",
+  "movable_area_mask_file": "block_3_Drag_movable_mask.png",
+  "trajectories": [
+    {
+      "original_trajectory": {
+        "is_rotation": false,
+        "control_points": [
+          [
+            381,
+            141
+          ],
+          [
+            390,
+            20
+          ]
+        ],
+        "points": [
+          [
+            381,
+            141
+          ],
+          [
+            390,
+            20
+          ]
+        ]
+      },
+      "block_trajectories": [
+        {
+          "is_rotation": false,
+          "deltas": [
+            [
+              9.0,
+              -121.0
+            ]
+          ],
+          "start_point": [
+            381,
+            141
+          ]
+        }
+      ],
+      "mask_file": "block_3_Drag_traj_0_mask.png"
+    }
+  ]
+}

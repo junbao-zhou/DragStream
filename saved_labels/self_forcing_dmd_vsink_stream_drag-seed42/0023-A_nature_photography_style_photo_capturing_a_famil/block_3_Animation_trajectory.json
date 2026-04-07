@@ -1,0 +1,102 @@
+{
+  "block_number": 2,
+  "prompt": "A nature photography style photo capturing a family of orangutans along the Kinabatangan River in Borneo. The mother orangutan, with long reddish-brown fur and expressive brown eyes, is holding her baby tightly. The baby orangutan, with smaller size and lighter fur, is clinging to its mother\u2019s chest, both gazing curiously at the camera. The father orangutan, larger and more muscular, is standing nearby, looking contemplative. The riverbank is lush with green foliage, and the water reflects the surrounding tropical rainforest. The photo has a vivid and naturalistic style, with the orangutans in focus against a slightly blurred background of dense jungle. A medium shot from a slightly elevated angle, capturing the interaction between the family.",
+  "drag_or_animation_select": "Animation",
+  "movable_area_mask_file": "block_3_Animation_movable_mask.png",
+  "trajectories": [
+    {
+      "original_trajectory": {
+        "is_rotation": false,
+        "control_points": [
+          [
+            625,
+            262
+          ],
+          [
+            662,
+            360
+          ],
+          [
+            724,
+            349
+          ]
+        ],
+        "points": [
+          [
+            625,
+            262
+          ],
+          [
+            634,
+            284
+          ],
+          [
+            646,
+            305
+          ],
+          [
+            660,
+            324
+          ],
+          [
+            678,
+            340
+          ],
+          [
+            700,
+            349
+          ],
+          [
+            724,
+            349
+          ]
+        ]
+      },
+      "block_trajectories": [
+        {
+          "is_rotation": false,
+          "deltas": [
+            [
+              9.0,
+              22.0
+            ],
+            [
+              21.0,
+              43.0
+            ],
+            [
+              35.0,
+              62.0
+            ]
+          ],
+          "start_point": [
+            625,
+            262
+          ]
+        },
+        {
+          "is_rotation": false,
+          "deltas": [
+            [
+              53.0,
+              78.0
+            ],
+            [
+              75.0,
+              87.0
+            ],
+            [
+              99.0,
+              87.0
+            ]
+          ],
+          "start_point": [
+            625,
+            262
+          ]
+        }
+      ],
+      "mask_file": "block_3_Animation_traj_0_mask.png"
+    }
+  ]
+}

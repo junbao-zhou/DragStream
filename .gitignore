@@ -5,9 +5,8 @@ wan_models
 checkpoints
 
 output*
+!outputs-editing
 
 *logs/
 
 .history
-
-saved_labels*/

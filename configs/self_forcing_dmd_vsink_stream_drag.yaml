@@ -13,7 +13,7 @@ drag_optim_config:
     - 1
 
   optimize_iter: 5
-  optimize_lr: 0.03
+  optimize_lr: 0.02
 
   translation_step: 16.0
   rotation_step: 8.0

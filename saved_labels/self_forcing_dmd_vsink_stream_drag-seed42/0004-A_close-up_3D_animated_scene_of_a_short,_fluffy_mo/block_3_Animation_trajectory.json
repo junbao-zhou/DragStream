@@ -1,0 +1,176 @@
+{
+  "block_number": 2,
+  "prompt": "A close-up 3D animated scene of a short, fluffy monster kneeling beside a melting red candle. The monster has large, wide eyes and an open mouth, gazing at the flame with a look of wonder and curiosity. Its soft, fluffy fur contrasts with the warm, dramatic lighting that highlights every detail of its gentle, innocent expression. The pose conveys a sense of playfulness and exploration, as if the creature is discovering the world for the first time. The background features a cozy, warmly lit room with subtle hints of a fireplace and soft furnishings, enhancing the overall atmosphere. The use of warm colors and dramatic lighting creates a captivating and inviting scene.",
+  "drag_or_animation_select": "Animation",
+  "movable_area_mask_file": "block_3_Animation_movable_mask.png",
+  "trajectories": [
+    {
+      "original_trajectory": {
+        "is_rotation": false,
+        "control_points": [
+          [
+            500,
+            284
+          ],
+          [
+            587,
+            339
+          ],
+          [
+            493,
+            399
+          ]
+        ],
+        "points": [
+          [
+            500,
+            284
+          ],
+          [
+            520,
+            299
+          ],
+          [
+            537,
+            319
+          ],
+          [
+            541,
+            343
+          ],
+          [
+            531,
+            366
+          ],
+          [
+            514,
+            384
+          ],
+          [
+            493,
+            399
+          ]
+        ]
+      },
+      "block_trajectories": [
+        {
+          "is_rotation": false,
+          "deltas": [
+            [
+              20.0,
+              15.0
+            ],
+            [
+              37.0,
+              35.0
+            ],
+            [
+              41.0,
+              59.0
+            ]
+          ],
+          "start_point": [
+            500,
+            284
+          ]
+        },
+        {
+          "is_rotation": false,
+          "deltas": [
+            [
+              31.0,
+              82.0
+            ],
+            [
+              14.0,
+              100.0
+            ],
+            [
+              -7.0,
+              115.0
+            ]
+          ],
+          "start_point": [
+            500,
+            284
+          ]
+        }
+      ],
+      "mask_file": "block_3_Animation_traj_0_mask.png"
+    },
+    {
+      "original_trajectory": {
+        "is_rotation": true,
+        "points": [
+          [
+            221,
+            277
+          ],
+          [
+            247,
+            131
+          ],
+          [
+            224,
+            139
+          ],
+          [
+            202,
+            147
+          ],
+          [
+            180,
+            156
+          ],
+          [
+            158,
+            164
+          ],
+          [
+            136,
+            172
+          ],
+          [
+            114,
+            181
+          ]
+        ]
+      },
+      "block_trajectories": [
+        {
+          "is_rotation": true,
+          "deltas": [
+            -8.852128028869629,
+            -18.412620544433594,
+            -28.816097259521484
+          ],
+          "start_point": [
+            247,
+            131
+          ],
+          "rotation_center": [
+            221,
+            277
+          ]
+        },
+        {
+          "is_rotation": true,
+          "deltas": [
+            -39.23814392089844,
+            -49.08849334716797,
+            -58.19916915893555
+          ],
+          "start_point": [
+            247,
+            131
+          ],
+          "rotation_center": [
+            221,
+            277
+          ]
+        }
+      ],
+      "mask_file": "block_3_Animation_traj_1_mask.png"
+    }
+  ]
+}
