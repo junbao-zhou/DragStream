@@ -101,6 +101,11 @@ To ensure every Drag/Animation is performed on the same generated video given th
 
 Please refer to the `set_seed(seed)` in `inference.py`, `stream_inference.py`, `click_gui_video.py`, and `offline_run.py` for details.
 
+## Examples
+
+We provide example inputs in `saved_labels/` and example outputs in `outputs-editing/`. See `offline_run.py` for how to load the saved trajectories and generate the edited videos.
+
+> Note: DragStream currently supports only text-to-video. Since text-to-video generation is inherently stochastic, results may differ across machines even with the same random seed. You may not reproduce the exact videos in `outputs-editing/`, but the saved trajectories in `saved_labels/` still serve as reference examples for performing drag operations.
 
 ## Acknowledgements
 This codebase is built on top of the open-source implementation of [Self-Forcing](https://self-forcing.github.io/).
