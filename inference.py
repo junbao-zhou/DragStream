@@ -33,10 +33,27 @@ seed = 42
 import sys
 
 sys.argv.extend(
+    # [
+    #     "--output_folder",
+    #     f"outputs/{output_latent_frame_number}-{config_name}-seed{seed}",
+    #     # f"outputs-test/{output_latent_frame_number}-{config_name}-seed{seed}",
+    #     "--config_dir",
+    #     "configs",
+    #     "--config_name",
+    #     config_name,
+    #     "--num_output_frames",
+    #     f"{output_latent_frame_number}",
+    #     "--data_path",
+    #     "prompts/MovieGenVideoBench_extended.txt",
+    #     "--checkpoint_path",
+    #     "./checkpoints/self_forcing_dmd.pt",
+    #     "--use_ema",
+    #     "--seed",
+    #     f"{seed}",
+    # ]
     [
         "--output_folder",
-        f"outputs/{output_latent_frame_number}-{config_name}-seed{seed}",
-        # f"outputs-test/{output_latent_frame_number}-{config_name}-seed{seed}",
+        f"outputs-i2v/{output_latent_frame_number}-{config_name}-seed{seed}",
         "--config_dir",
         "configs",
         "--config_name",
@@ -44,12 +61,13 @@ sys.argv.extend(
         "--num_output_frames",
         f"{output_latent_frame_number}",
         "--data_path",
-        "prompts/MovieGenVideoBench_extended.txt",
+        "1st_frames_dataset",
         "--checkpoint_path",
         "./checkpoints/self_forcing_dmd.pt",
         "--use_ema",
         "--seed",
         f"{seed}",
+        "--i2v",
     ]
 )
 print(f"{sys.argv = }")
@@ -197,13 +215,18 @@ for i, batch_data in tqdm(enumerate(dataloader), disable=(local_rank != 0)):
         prompts = [prompt] * args.num_samples
 
         # Process the image
-        image = (
-            batch["image"]
-            .squeeze(0)
-            .unsqueeze(0)
-            .unsqueeze(2)
-            .to(device=device, dtype=torch.bfloat16)
+        print(f"{batch['image'].shape = }")
+        image = batch["image"].unsqueeze(2).to(device=device, dtype=torch.bfloat16)
+        # [B, C, F, H, W]
+        print(f"{image.shape = }")
+        image = torch.concat(
+            [
+                image.repeat(1, 1, 9 - image.shape[2], 1, 1),
+                image,
+            ],
+            dim=2,
         )
+        print(f"{image.shape = }")
 
         # Encode the input image as the first latent
         initial_latent = pipeline.vae.encode_to_latent(image).to(
@@ -212,7 +235,7 @@ for i, batch_data in tqdm(enumerate(dataloader), disable=(local_rank != 0)):
         initial_latent = initial_latent.repeat(args.num_samples, 1, 1, 1, 1)
 
         sampled_noise = torch.randn(
-            [args.num_samples, args.num_output_frames - 1, 16, 60, 104],
+            [args.num_samples, args.num_output_frames - initial_latent.shape[1], 16, 60, 104],
             device=device,
             dtype=torch.bfloat16,
         )
