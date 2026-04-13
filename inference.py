@@ -215,10 +215,8 @@ for i, batch_data in tqdm(enumerate(dataloader), disable=(local_rank != 0)):
         prompts = [prompt] * args.num_samples
 
         # Process the image
-        print(f"{batch['image'].shape = }")
         image = batch["image"].unsqueeze(2).to(device=device, dtype=torch.bfloat16)
         # [B, C, F, H, W]
-        print(f"{image.shape = }")
         image = torch.concat(
             [
                 image.repeat(1, 1, 9 - image.shape[2], 1, 1),
@@ -226,7 +224,6 @@ for i, batch_data in tqdm(enumerate(dataloader), disable=(local_rank != 0)):
             ],
             dim=2,
         )
-        print(f"{image.shape = }")
 
         # Encode the input image as the first latent
         initial_latent = pipeline.vae.encode_to_latent(image).to(
