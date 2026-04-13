@@ -232,10 +232,11 @@ for i, batch_data in tqdm(enumerate(dataloader), disable=(local_rank != 0)):
         initial_latent = initial_latent.repeat(args.num_samples, 1, 1, 1, 1)
 
         sampled_noise = torch.randn(
-            [args.num_samples, args.num_output_frames - initial_latent.shape[1], 16, 60, 104],
+            [args.num_samples, args.num_output_frames, 16, 60, 104],
             device=device,
             dtype=torch.bfloat16,
         )
+        sampled_noise = sampled_noise[:, initial_latent.shape[1] :, ...]
     else:
         # For text-to-video, batch is just the text prompt
         prompt = batch["prompts"][0]

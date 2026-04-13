@@ -71,11 +71,13 @@ class StreamInferenceWrapper:
 
         self.stream_model_config = stream_model_config
 
-        print(f"""
+        print(
+            f"""
 {self.__class__.__name__}.__init__():
     {self.initial_noise.shape = }
 {self.stream_model_config = }
-""")
+"""
+        )
 
     def block_to_latent_index(self, block_index: int) -> int:
         return block_index * self.pipeline.num_frame_per_block
@@ -87,6 +89,71 @@ class StreamInferenceWrapper:
 
     def block_to_video_index(self, block_index: int) -> int:
         return self.latent_to_video_index(self.block_to_latent_index(block_index))
+
+    def encode_image_and_update_recorded_latents(
+        self,
+        image: torch.Tensor,
+        text_prompt: str = None,
+        num_i2v_input_frames: int = 9,
+    ) -> torch.Tensor:
+        """Encode an input image/video and update the recorded latent buffer.
+
+        Args:
+            image: Tensor in [-1, 1], shaped as [C, H, W], [B, C, H, W],
+                or [B, C, F, H, W].
+            num_i2v_input_frames: Minimum temporal frames for i2v warm start.
+                If input has fewer frames, it is left-padded by repeating the first image.
+        """
+        if image.ndim == 3:
+            image = image.unsqueeze(0)
+        if image.ndim == 4:
+            image = image.unsqueeze(2)
+        assert image.ndim == 5, f"Expected image with 3/4/5 dims, got {image.ndim}"
+
+        image = image.to(device=device, dtype=torch.bfloat16)
+
+        if image.shape[2] < num_i2v_input_frames:
+            image = torch.concat(
+                [
+                    image.repeat(1, 1, num_i2v_input_frames - image.shape[2], 1, 1),
+                    image,
+                ],
+                dim=2,
+            )
+
+        if self.stream_model_config.vae_offload_cpu:
+            self.pipeline.vae.to(device=gpu)
+        initial_latents = self.pipeline.vae.encode_to_latent(image).to(
+            device=device,
+            dtype=torch.bfloat16,
+        )
+        initial_latents = self.pipeline.inference(
+            noise=torch.randn(
+                [1, 0, 16, 60, 104],
+                device=device,
+                dtype=torch.bfloat16,
+            ),
+            text_prompts=[text_prompt],
+            return_latents=True,
+            initial_latent=initial_latents,
+            do_not_decode_video=True,
+        )
+        print(f"{initial_latents.shape = }")
+        if self.stream_model_config.vae_offload_cpu:
+            self.pipeline.vae.to(device="cpu")
+
+        if self.recorded_latents is None:
+            self.recorded_latents = initial_latents
+        else:
+            self.recorded_latents = torch.concat(
+                [
+                    self.recorded_latents,
+                    initial_latents,
+                ],
+                dim=1,
+            )
+        print(f"{self.recorded_latents.shape = }")
+        return initial_latents
 
     def get_sampled_noise(
         self,
@@ -182,10 +249,12 @@ class StreamInferenceWrapper:
     ):
         assert start_block_index >= 0
         assert end_block_index > start_block_index
-        print(f"""
+        print(
+            f"""
 {self.__class__.__name__}.inference():
     {start_block_index = }  |  {end_block_index = }
-""")
+"""
+        )
         sampled_noise = self.get_sampled_noise(start_block_index, end_block_index)
         prompts = [prompt]
 
