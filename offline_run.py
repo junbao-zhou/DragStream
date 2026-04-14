@@ -1,10 +1,12 @@
 import argparse
 from pathlib import Path
+from PIL import Image
 
 import torch
 from hydra import compose, initialize
 from hydra.core.global_hydra import GlobalHydra
 from torchvision.io import write_video
+from torchvision import transforms
 
 from optimize_utils import MultiTrajectory
 from stream_drag_inference_wrapper import StreamDragInferenceWrapper
@@ -38,7 +40,8 @@ def build_stream_drag_inference(
 def main() -> None:
     prompt_index = 4
     trajectory_dir = "./saved_labels/self_forcing_dmd_vsink_stream_drag-seed42/0004-A_close-up_3D_animated_scene_of_a_short,_fluffy_mo"
-    start_block_index = 3
+    first_frame_path = "1st_frames_dataset/832-480/4-A_close-up_3D_animated_scene_of_a_short,_fluffy_mo-0_ema.png"
+    start_block_index = 3 if first_frame_path is None else 1
     trajectory_prefix = "block_3_Animation"
     config_dir = "configs"
     config_name = "self_forcing_dmd_vsink_stream_drag"
@@ -46,7 +49,7 @@ def main() -> None:
     total_generate_block_number = 36
     seed = 42
     fps = 8
-    output_dir = "outputs-editing/self_forcing_dmd_vsink_stream_drag-seed42"
+    output_dir = f"outputs-editing-{'i2v' if first_frame_path else ''}/self_forcing_dmd_vsink_stream_drag-seed42"
     use_ema = True
 
     torch.set_grad_enabled(False)
@@ -67,11 +70,26 @@ def main() -> None:
 
     set_seed(seed)
     model.reset()
-    model.inference(
-        start_block_index=0,
-        end_block_index=start_block_index,
-        prompt=trajectory.prompt,
-    )
+    if first_frame_path is not None:
+        transform = transforms.Compose(
+            [
+                transforms.Resize((480, 832)),
+                transforms.ToTensor(),
+                transforms.Normalize([0.5], [0.5]),
+            ]
+        )
+        image = Image.open(first_frame_path).convert("RGB")
+        image = transform(image)
+        model.encode_image_and_update_recorded_latents(
+            image=image,
+            text_prompt=trajectory.prompt,
+        )
+    else:
+        model.inference(
+            start_block_index=0,
+            end_block_index=start_block_index,
+            prompt=trajectory.prompt,
+        )
 
     all_video, current_video, end_block_index = run_optimization(
         model=model,

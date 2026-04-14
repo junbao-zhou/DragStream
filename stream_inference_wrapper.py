@@ -10,8 +10,6 @@ from utils.misc import set_seed
 
 from demo_utils.memory import gpu
 
-device = torch.device("cuda")
-
 
 def get_video(video):
     video = rearrange(video, "b t c h w -> b t h w c").cpu()
@@ -36,7 +34,7 @@ class StreamInferenceWrapper:
         assert hasattr(stream_model_config, "denoising_step_list")
         self.pipeline = CausalInferencePipeline(
             stream_model_config,
-            device=device,
+            device=gpu,
         )
 
         state_dict = torch.load(checkpoint_path, map_location="cpu")
@@ -62,7 +60,7 @@ class StreamInferenceWrapper:
                 60,
                 104,
             ],
-            device=device,
+            device=gpu,
             dtype=torch.bfloat16,
         )
 
@@ -110,7 +108,7 @@ class StreamInferenceWrapper:
             image = image.unsqueeze(2)
         assert image.ndim == 5, f"Expected image with 3/4/5 dims, got {image.ndim}"
 
-        image = image.to(device=device, dtype=torch.bfloat16)
+        image = image.to(device=gpu, dtype=torch.bfloat16)
 
         if image.shape[2] < num_i2v_input_frames:
             image = torch.concat(
@@ -124,13 +122,13 @@ class StreamInferenceWrapper:
         if self.stream_model_config.vae_offload_cpu:
             self.pipeline.vae.to(device=gpu)
         initial_latents = self.pipeline.vae.encode_to_latent(image).to(
-            device=device,
+            device=gpu,
             dtype=torch.bfloat16,
         )
         initial_latents = self.pipeline.inference(
             noise=torch.randn(
                 [1, 0, 16, 60, 104],
-                device=device,
+                device=gpu,
                 dtype=torch.bfloat16,
             ),
             text_prompts=[text_prompt],

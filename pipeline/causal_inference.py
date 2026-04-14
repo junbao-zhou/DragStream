@@ -854,15 +854,28 @@ class CausalInferencePipeline(torch.nn.Module):
                 if do_not_recompute_initial_latents:
                     pass
                 else:
+                    if model_config is not None and OmegaConf.select(
+                        model_config, "drag_optim_config.record_feature_block_indexes"
+                    ):
+                        record_attention_values_list = {}
                     print(f"Recompute KV cache based on Initial Latents")
-                    self.generator(
+                    _, denoised_pred = self.generator(
                         noisy_image_or_video=current_ref_latents,
                         conditional_dict=conditional_dict,
                         timestep=timestep * 0,
                         kv_cache=self.kv_cache1,
                         crossattn_cache=self.crossattn_cache,
                         current_start=current_start_frame * self.frame_seq_length,
+                        model_config=model_config,
                     )
+                    if model_config is not None and OmegaConf.select(
+                        model_config,
+                        "drag_optim_config.record_feature_block_indexes",
+                    ):
+                        denoised_pred, record_features = denoised_pred
+                        for time_step_index in model_config.drag_optim_config.optimize_denoising_steps_indexes:
+                            record_attention_values_list[time_step_index] = record_features
+                        record_attention_values_list[-1] = record_features
                 current_start_frame += self.num_frame_per_block
 
         if profile:

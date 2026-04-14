@@ -39,7 +39,7 @@ def main():
     block_step = 3
 
     output_folder = "outputs-stream"
-    output_folder = f"{output_folder}-{'i2v' if i2v else 't2v'}/blk{output_block_number}-{stream_config_name}-seed{seed}"
+    output_folder = f"{output_folder}-{'i2v' if i2v else ''}/blk{output_block_number}-{stream_config_name}-seed{seed}"
 
     print(f"Free VRAM {get_cuda_free_memory_gb(gpu)} GB")
     # low_memory = get_cuda_free_memory_gb(gpu) < 40
