@@ -6,6 +6,7 @@ checkpoints
 
 output*
 !outputs-editing
+!outputs-editing-i2v
 
 *logs/
 
